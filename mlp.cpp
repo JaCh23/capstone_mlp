@@ -54,7 +54,7 @@ int mlp(std::vector<double>inputs)
 
     return largest_classified_bucket;
 
-    // return outputs;
+    // return outputs; test
     
     // std::cout << "Output layer values: ";
     // for(int i = 0; i < outputs.size(); ++i)
