@@ -9,14 +9,37 @@
 
 using namespace std;
 
+// function to iterate and print a vector
+void print_vector(std::vector<double> v)
+{
+    for(int i = 0; i < v.size(); ++i)
+    {
+        std::cout << v[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
+std::vector<std::vector<double>> create_2d_vector_from_1d(const std::vector<double>& input, int num_cols)
+{
+    std::vector<std::vector<double>> result;
+    std::vector<double> row;
+    for (int i = 0; i < input.size(); i++)
+    {
+        row.push_back(input[i]);
+        if ((i + 1) % num_cols == 0)
+        {
+            result.push_back(row);
+            row.clear();
+        }
+    }
+    if (!row.empty())
+    {
+        result.push_back(row);
+    }
+    return result;
+}
 
 bool compareDataRow(const std::vector<double>& dataRow, const std::vector<double>& expectedDataRow) {
-    auto print_vector = [](const std::vector<double>& v) -> void {
-        for (auto i : v) {
-        std::cout << i << " ";
-        }
-        std::cout << std::endl;
-        };
 
     bool flag = true;
     if (dataRow.size() != expectedDataRow.size()) {
@@ -44,4 +67,16 @@ bool compareDataRow(const std::vector<double>& dataRow, const std::vector<double
     print_vector(dataRow);
         
     return flag;
+}
+
+std::vector<double> read_file_arr(const std::string &filename) {
+    std::ifstream input_file(filename);
+    std::vector<double> data;
+
+    double value;
+    while (input_file >> value) {
+        data.push_back(value);
+    }
+
+    return data;
 }
