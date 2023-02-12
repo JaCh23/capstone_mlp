@@ -11,8 +11,8 @@
 using namespace std;
 
 int main() {
-    vector<vector<double>> inputData = readData("sim_data.txt");
-    vector<vector<double>> expectedData = readData("sim_labels.txt");
+    vector<vector<double>> inputData = getTestData();
+    vector<vector<double>> expectedData = getTestLabels();
     vector<vector<double>> outputData;
     
     for (const vector<double>& row : inputData) {
@@ -49,12 +49,7 @@ int main() {
 
 
 
-// void print_vector(const std::vector<double>& v) {
-//     for (auto i : v) {
-//         std::cout << i << " ";
-//     }
-//     std::cout << std::endl;
-// }
+
 
 
 

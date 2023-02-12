@@ -5,30 +5,10 @@
 #include <cmath>
 #include <string>
 
+#include "helper_functions.h"
+
 using namespace std;
 
-vector<vector<double>> readData(const string& filename) {
-    vector<vector<double>> data;
-    ifstream file(filename);
-
-    if (file.is_open()) {
-        string line;
-        while (getline(file, line)) {
-            vector<double> row;
-            stringstream ss(line);
-            double value;
-            while (ss >> value) {
-                row.push_back(value);
-            }
-            data.push_back(row);
-        }
-        file.close();
-    } else {
-        cout << "Unable to open file " << filename << endl;
-    }
-
-    return data;
-}
 
 bool compareDataRow(const std::vector<double>& dataRow, const std::vector<double>& expectedDataRow) {
     auto print_vector = [](const std::vector<double>& v) -> void {
@@ -64,33 +44,4 @@ bool compareDataRow(const std::vector<double>& dataRow, const std::vector<double
     print_vector(dataRow);
         
     return flag;
-}
-
-std::vector<double> read_file_arr(const std::string &filename) {
-    std::ifstream input_file(filename);
-    std::vector<double> data;
-
-    double value;
-    while (input_file >> value) {
-        data.push_back(value);
-    }
-
-    return data;
-}
-
-std::vector<std::vector<double>> read_file(const std::string &filename) {
-    std::ifstream input_file(filename);
-    std::vector<std::vector<double>> data;
-    std::vector<double> row;
-
-    double value;
-    while (input_file >> value) {
-        row.push_back(value);
-        if (input_file.peek() == '\n') {
-            data.push_back(row);
-            row.clear();
-        }
-    }
-
-    return data;
 }
