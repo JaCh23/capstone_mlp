@@ -40,26 +40,11 @@ int main() {
     int COLUMN_FEATURES = 24;
     int LABEL_SIZE = 4;
 
-
     vector<vector<double>> inputData2d = create_2d_vector_from_1d(inputData, 24);
     vector<vector<double>> expectedData2d = create_2d_vector_from_1d(expectedData, 4);
 
-
     for (int i = 0; i < inputData2d.size(); i++) {
         outputData2d.push_back(mlp(inputData2d[i]));
-        // print_vector(input_vector);
-        // cout << "mlp data size: " <<   mlp(input_vector).size() << endl;
-        // cout << "Output data size: " << outputData2d.size() << endl;
-        // print_vector(mlp(inputData2d[i]));
-
-        // print_vector(outputData2d[i]);
-
-        // print i
-        // cout << "i: " << i << endl;
-
-    // cout << "Expected data size: " << expectedData.size() << endl;
-
-
     }
 
     // print output data size
@@ -67,20 +52,12 @@ int main() {
 
     // print expectedData size
     cout << "Expected data size: " << expectedData2d.size() << endl;
-
-    // for (const vector<double>& row : inputData) {
-    //     outputData2d.push_back(mlp(row));
-    // }
     
     // writing data to file for sanity check
     writeData(outputData2d, "output.txt");
 
     int count = 0;
 
-//    if (outputData2d.size() != expectedData.size()) {
-//         cout << "The number of data rows and expected data rows do not match." << endl;
-//         return 0;
-//     }
     for (int i = 0; i < expectedData2d.size(); i++) {
         bool flag = compareDataRow(outputData2d[i], expectedData2d[i]);
         if (!flag) {
