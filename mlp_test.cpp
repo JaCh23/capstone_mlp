@@ -1,4 +1,5 @@
 #include "mlp.h"
+#include "helper_functions.h"
 
 #include <fstream>
 #include <sstream>
@@ -11,8 +12,8 @@
 using namespace std;
 
 int main() {
-    vector<vector<double>> inputData = getTestData();
-    vector<vector<double>> expectedData = getTestLabels();
+    vector<vector<double>> inputData = arrayToVector(getTestData(), ROW_SIZE=100, COL_SIZE=4);
+    vector<vector<double>> expectedData = arrayToVector(getTestLabels(), ROW_SIZE=100, COL_SIZE=4);
     vector<vector<double>> outputData;
     
     for (const vector<double>& row : inputData) {
