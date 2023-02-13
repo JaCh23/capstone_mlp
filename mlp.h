@@ -11,6 +11,7 @@ std::vector<double> sigmoid(const std::vector<double> &x);
 std::vector<double> softmax(const std::vector<double> &x);
 std::vector<double> compute_layer(const std::vector<double> &inputs, const std::vector<double> &weights, const std::vector<double> &biases, int weights_col);
 std::vector<double> oneHotEncode(int index, int size);
+int getLargestIndex(std::vector<double> &outputs);
 
 std::vector<double> getWeights1();
 std::vector<double> getWeights2();

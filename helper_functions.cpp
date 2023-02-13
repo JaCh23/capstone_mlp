@@ -19,9 +19,9 @@ void print_vector(std::vector<double> v)
     std::cout << std::endl;
 }
 
-std::vector<std::vector<double>> create_2d_vector_from_1d(const std::vector<double>& input, int num_cols)
+std::vector<std::vector<double> > create_2d_vector_from_1d(const std::vector<double>& input, int num_cols)
 {
-    std::vector<std::vector<double>> result;
+    std::vector<std::vector<double> > result;
     std::vector<double> row;
     for (int i = 0; i < input.size(); i++)
     {
