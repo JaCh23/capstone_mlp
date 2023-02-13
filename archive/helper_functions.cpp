@@ -69,14 +69,22 @@ bool compareDataRow(const std::vector<double>& dataRow, const std::vector<double
     return flag;
 }
 
-std::vector<double> read_file_arr(const std::string &filename) {
-    std::ifstream input_file(filename);
-    std::vector<double> data;
-
-    double value;
-    while (input_file >> value) {
-        data.push_back(value);
+std::vector<double> arrayToVector(double arr[], double size) {
+    std::vector<double> vec;
+    for (int i = 0; i < size; i++) {
+        vec.push_back(arr[i]);
     }
-
-    return data;
+    return vec;
 }
+
+// std::vector<double> read_file_arr(const std::string &filename) {
+//     std::ifstream input_file(filename);
+//     std::vector<double> data;
+
+//     double value;
+//     while (input_file >> value) {
+//         data.push_back(value);
+//     }
+
+//     return data;
+// }

@@ -7,37 +7,35 @@
 #include <string>
 
 
-std::vector<double> mlp(std::vector<double>inputs)
+void mlp(const std::vector<double> &inputs, double output[])
 {
+    std::vector<double> weights_1;
+    std::vector<double> biases_1;
+    std::vector<double> weights_2;
+    std::vector<double> biases_2;
+    std::vector<double> weights_3;
+    std::vector<double> biases_3;
+    std::vector<double> result(4);
 
-    // std::vector<double> weights_1;
-    // std::vector<double> biases_1;
-    // std::vector<double> weights_2;
-    // std::vector<double> biases_2;
-    // std::vector<double> weights_3;
-    // std::vector<double> biases_3;
-
-    // std::vector<double> weights_1 = getWeights1();
-    // std::vector<double> biases_1 = getBiases1();
-    // std::vector<double> weights_2 = getWeights2();
-    // std::vector<double> biases_2 = getBiases2();
-    // std::vector<double> weights_3 = getWeights3();
-    // std::vector<double> biases_3 = getBiases3();
-
-    std::vector<double> weights_1 = read_file_arr("array_0.txt");
-    std::vector<double> biases_1 = read_file_arr("array_1.txt");
-    std::vector<double> weights_2 = read_file_arr("array_2.txt");
-    std::vector<double> biases_2 = read_file_arr("array_3.txt");
-    std::vector<double> weights_3 = read_file_arr("array_4.txt");
-    std::vector<double> biases_3 = read_file_arr("array_5.txt");
+    // std::vector<double> weights_1 = read_file_arr("array_0.txt");
+    // std::vector<double> biases_1 = read_file_arr("array_1.txt");
+    // std::vector<double> weights_2 = read_file_arr("array_2.txt");
+    // std::vector<double> biases_2 = read_file_arr("array_3.txt");
+    // std::vector<double> weights_3 = read_file_arr("array_4.txt");
+    // std::vector<double> biases_3 = read_file_arr("array_5.txt");
 
     std::vector<double> hidden_layer_1 = sigmoid(compute_layer(inputs, weights_1, biases_1, 32));
     std::vector<double> hidden_layer_2 = sigmoid(compute_layer(hidden_layer_1, weights_2, biases_2, 32));
     std::vector<double> outputs = softmax(compute_layer(hidden_layer_2, weights_3, biases_3, 4));
 
     int largest_classified_bucket = getLargestIndex(outputs);
+    result = oneHotEncode(largest_classified_bucket, outputs.size());
 
-    return oneHotEncode(largest_classified_bucket, outputs.size());
+    double arr[4];
+
+    for (int i = 0; i < 4; i++) {
+        arr[i] = result[i];
+    }
 }
 
 

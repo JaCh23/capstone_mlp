@@ -10,5 +10,6 @@ std::vector<std::vector<double> > arrayToVector(const double inputArray, int ROW
 std::vector<double> read_file_arr(const std::string &filename);
 void print_vector(std::vector<double> v);
 std::vector<std::vector<double> > create_2d_vector_from_1d(const std::vector<double>& input, int num_cols);
+std::vector<double> arrayToVector(double arr[], double size);
 
 #endif
