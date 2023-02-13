@@ -34,8 +34,8 @@ void writeData(const vector<vector<double>>& data, const string& filename) {
 }
 
 int main() {
-    vector<double> inputData = read_file_arr("sim_data.txt");
-    vector<double> expectedData = read_file_arr("sim_labels.txt");
+    vector<double> inputData = getTestData();
+    vector<double> expectedData = getTestLabels();
     vector<vector<double>> outputData2d;
     int COLUMN_FEATURES = 24;
     int LABEL_SIZE = 4;
@@ -74,6 +74,7 @@ int main() {
 
     return 0;
 }
+
 
 
 
