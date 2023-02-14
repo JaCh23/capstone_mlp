@@ -6,6 +6,7 @@
 #define NUM_HIDDEN 32
 #define NUM_OUTPUTS 4
 #define INPUT_SAMPLES 5
+#define TOTAL_SAMPLES 10
 
 double sigmoid(double x) {
     return 1.0 / (1.0 + exp(-x));
@@ -198,22 +199,32 @@ int main() {
     {0.8472006319199172, 0.4368460523119898, 0.8660547928197485, 0.01209612244537106, 0.0039126623190886, 0.009083683174200718, 0.005883408415528368, 0.008101066487084196, 0.00822964459344977, 0.7592705236428834, 0.5481947680656688, 0.5976171511027247, 0.040369872059940304, 0.8451648690740803, 0.9999999999999999, 0.6255079652150809, 0.7491747235694894, 0.04109684352160091, 0.7592705236428834, 0.5481947680656688, 0.5976171511027247, 0.5831288163108683, 0.5526001638362918, 0.615643070260733},
 };
 
-    double expectedOutput[10] = {3, 2, 1, 1, 0, 2, 3, 0, 2, 0 };
+    double expectedOutput[TOTAL_SAMPLES] = {3, 2, 1, 1, 0, 2, 3, 0, 2, 0 };
     
-    int j = 0
+    int j = 0;
+    int count = 0;
     
     // print mlp(inputs)
     for (int i = 0; i < INPUT_SAMPLES; i++) {
-        std::cout << mlp(inputs1[i]) << std::endl;
-        std::cout << expectedOutput[j] << std::endl;
+        std::cout << "achieved output: " << mlp(inputs1[i]) << std::endl;
+        std::cout << "expected: " << expectedOutput[j] << std::endl;
+        if (mlp(inputs1[i]) == expectedOutput[j]) {
+            count++;
+        }
         j++;
     }
     
     for (int i = 0; i < INPUT_SAMPLES; i++) {
-        std::cout << mlp(inputs2[i]) << std::endl;
-        std::cout << expectedOutput[j] << std::endl;
+        std::cout << "achieved output: " << mlp(inputs2[i]) << std::endl;
+        std::cout << "expected: " << expectedOutput[j] << std::endl;
+        if (mlp(inputs1[i]) == expectedOutput[j]) {
+            count++;
+        }
         j++;
     }
+    
+    std::cout << "count of passed cases: " << count << std::endl;
+    std:cout << "Accuracy of model: " << (count*100)/TOTAL_SAMPLES << "%" << std::endl;
 
     return 0;
 }
