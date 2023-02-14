@@ -23,7 +23,7 @@ double sigmoid(double x) {
     return 1.0 / (1.0 + exp(-x));
 }
 
-void forward_pass_mlp(hls::stream<AXIS_wLAST>& S_AXIS, hls::stream<AXIS_wLAST>& M_AXIS){
+void forward_pass_mlp2(hls::stream<AXIS_wLAST>& S_AXIS, hls::stream<AXIS_wLAST>& M_AXIS){
 #pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS INTERFACE axis port=S_AXIS
 #pragma HLS INTERFACE axis port=M_AXIS
@@ -39,6 +39,7 @@ void forward_pass_mlp(hls::stream<AXIS_wLAST>& S_AXIS, hls::stream<AXIS_wLAST>& 
 	float f;
 	} converter;
 
+    int word_cnt;
 	AXIS_wLAST input_data, output_data;
 
 	// Read inputs from input stream
@@ -214,12 +215,12 @@ void forward_pass_mlp(hls::stream<AXIS_wLAST>& S_AXIS, hls::stream<AXIS_wLAST>& 
 
 	output_data.data = ans;
 	output_data.last = 0;
-	if(word_cnt==NUMBER_OF_OUTPUT_WORDS-1)
-	{
-		write_output.last = 1;
+	// if(word_cnt==NUMBER_OF_OUTPUT_WORDS-1)
+	// {
+	output_data.last = 1;
 		// M_AXIS_TLAST is required to be asserted for the last word.
 		// Else, the AXI Stream FIFO / AXI DMA will not know if all the words have been received from the co-processor.
-	}
+	// }
 
 	M_AXIS.write(output_data);
 }
