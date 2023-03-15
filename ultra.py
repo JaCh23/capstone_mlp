@@ -12,10 +12,8 @@ import scipy.signal as sig
 from scipy import signal, stats
 from scipy.stats import entropy, kurtosis, skew
 import joblib
-
-# import matplotlib.pyplot as plt
-# import pynq
-# from pynq import Overlay
+import pynq
+from pynq import Overlay
 
 
 class Training(threading.Thread):
@@ -38,11 +36,11 @@ class Training(threading.Thread):
         self.headers.extend(['action'])
 
         # defining game action dictionary
-        self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
+        self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
 
-        # PYNQ overlay - TODO
-        # self.overlay = Overlay("design_3.bit")
-        # self.dma = self.overlay.axi_dma_0
+        # PYNQ overlay
+        self.overlay = Overlay("pca_mlp_1.bit")
+        self.dma = self.overlay.axi_dma_0
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -138,91 +136,70 @@ class Training(threading.Thread):
 
         return processed_data_arr
     
-    def MLP(self, data):
+    def PCA_MLP(self, data):
         start_time = time.time()
         # allocate in and out buffer
-        in_buffer = pynq.allocate(shape=(24,), dtype=np.double)
+        in_buffer = pynq.allocate(shape=(35,), dtype=np.double) # 1x35 PCA input
+        out_buffer = pynq.allocate(shape=(4,), dtype=np.double) # 1x4 softmax output
 
-        # print time taken so far 
-        print(f"MLP time taken so far in_buffer: {time.time() - start_time}")
-        # out buffer of 1 integer
-        out_buffer = pynq.allocate(shape=(1,), dtype=np.int32)
-        print(f"MLP time taken so far out_buffer: {time.time() - start_time}")
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (35,))
 
-        # # TODO - copy all data to in buffer
-        # for i, val in enumerate(data):
-        #     in_buffer[i] = val
-
-        for i, val in enumerate(data[:24]):
+        for i, val in enumerate(data):
             in_buffer[i] = val
-
-        print(f"MLP time taken so far begin trf: {time.time() - start_time}")
 
         self.dma.sendchannel.transfer(in_buffer)
         self.dma.recvchannel.transfer(out_buffer)
-
-        print(f"MLP time taken so far end trf: {time.time() - start_time}")
-
 
         # wait for transfer to finish
         self.dma.sendchannel.wait()
         self.dma.recvchannel.wait()
 
-        print(f"MLP time taken so far wait: {time.time() - start_time}")
-
-
-        # print("mlp done \n")
-
         # print output buffer
-        for output in out_buffer:
-            print(f"mlp done with output {output}")
+        print("mlp done with output: " + " ".join(str(x) for x in out_buffer))
         
         print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        return [random.random() for _ in range(4)]
+        return out_buffer
     
 
     def instantMLP(self, data):
-        # Define the input weights and biases
-        # w1 = np.random.rand(24, 10)
-        # b1 = np.random.rand(10)
-        # w2 = np.random.rand(10, 20)
-        # b2 = np.random.rand(20)
-        # w3 = np.random.rand(20, 4)
-        # b3 = np.random.rand(4)
-
-        # # Perform the forward propagation
-        # a1 = np.dot(data[:24], w1) + b1
-        # h1 = np.maximum(0, a1)  # ReLU activation
-        # a2 = np.dot(h1, w2) + b2
-        # h2 = np.maximum(0, a2)  # ReLU activation
-        # a3 = np.dot(h2, w3) + b3
-
-        # c = np.max(a3)
-        # exp_a3 = np.exp(a3 - c)
-        # softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
-        
-        # return softmax_output
-
         # Load the model from file and preproessing
         # localhost
-        mlp = joblib.load('mlp_model.joblib')
-        scaler = joblib.load('scaler.joblib')
-        pca = joblib.load('pca.joblib')
+        # mlp = joblib.load('mlp_model.joblib')
+        # scaler = joblib.load('scaler.joblib')
+        # pca = joblib.load('pca.joblib')
         
         # board
-        # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
-        # scaler = joblib.load('/home/xilinx/scaler.joblib')
-        # pca = joblib.load('/home/xilinx/pca.joblib')
+        mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+        scaler = joblib.load('/home/xilinx/scaler.joblib')
+        pca = joblib.load('/home/xilinx/pca.joblib')
 
+        # Preprocess data
         test_data_std = scaler.transform(data.reshape(1,-1))
         test_data_pca = pca.transform(test_data_std)
 
-        # Use the loaded MLP model to predict labels for the test data
+        # Use MLP 
         predicted_labels = mlp.predict(test_data_pca)
+        predicted_label = str(predicted_labels[0].item()) # return single char
 
-        predicted_label = str(predicted_labels[0].item()) # convert to single char
+        # print predicted label of MLP predicted_label
+        print(f"MLP lib predicted: {predicted_label} \n")
 
+
+        predicted_labels = self.PCA_MLP(test_data_pca) # return 1x4 softmax array
+
+        np_output = np.array(predicted_labels)
+        largest_index = np_output.argmax()
+
+        # predicted_label = self.action_map[largest_index]
+        predicted_label = self.action_map[largest_index]
+
+        # print largest index and largest action of MLP output
+        # print(f"largest index: {largest_index} \n")
+        print(f"MLP overlay predicted: {predicted_label} \n")
+
+        # output is a single char
         return predicted_label
 
 
@@ -323,15 +300,6 @@ class Training(threading.Thread):
                     predicted_label = self.instantMLP(preprocessed_data)
                     
                     print(f"output from MLP: \n {predicted_label} \n") # print output of MLP
-
-                    # np_output = np.array(output)
-                    # largest_index = np_output.argmax()
-
-                    # largest_action = self.action_map[largest_index]
-
-                    # print largest index and largest action of MLP output
-                    # print(f"largest index: {largest_index} \n")
-                    # print(f"largest action: {largest_action} \n")
 
                     # reset movement_detected list
                     movement_detected.clear()
