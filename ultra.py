@@ -12,8 +12,9 @@ import scipy.signal as sig
 from scipy import signal, stats
 from scipy.stats import entropy, kurtosis, skew
 import joblib
-import pynq
-from pynq import Overlay
+import json
+# import pynq
+# from pynq import Overlay
 
 
 class Training(threading.Thread):
@@ -38,9 +39,21 @@ class Training(threading.Thread):
         # defining game action dictionary
         self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
 
+        # load PCA model
+        # read the contents of the arrays.txt file
+        with open("arrays.txt", "r") as f:
+            data = json.load(f)
+
+        # extract the weights and bias arrays
+        self.scaling_factor = data['scaling_factor']
+        self.mean = data['mean']
+        self.variance = data['variance']
+        self.pca_eigvecs_list = data['pca_eigvecs_list']
+
+        self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
         # PYNQ overlay
-        self.overlay = Overlay("pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
+        # self.overlay = Overlay("pca_mlp_1.bit")
+        # self.dma = self.overlay.axi_dma_0
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -48,12 +61,12 @@ class Training(threading.Thread):
             pass
 
     def generate_simulated_data(self):
-        gx = random.uniform(-180, 180)
-        gy = random.uniform(-180, 180)
-        gz = random.uniform(-180, 180)
-        accX = random.uniform(-9000, 9000)
-        accY = random.uniform(-9000, 9000)
-        accZ = random.uniform(-9000, 9000)
+        gx = random.uniform(-9, 9) # TODO - assumption: gyro x,y,z change btwn -9 to 9
+        gy = random.uniform(-9, 9)
+        gz = random.uniform(-9, 9)
+        accX = random.uniform(-9, 9)
+        accY = random.uniform(-9, 9)
+        accZ = random.uniform(-9, 9)
         return [gx, gy, gz, accX, accY, accZ]
     
     # simulate game movement with noise and action
@@ -89,8 +102,6 @@ class Training(threading.Thread):
         root_mean_square = np.sqrt(np.mean(np.square(data)))
         interquartile_range = stats.iqr(data)
         percentile_75 = np.percentile(data, 75)
-        # skewness = stats.skew(data.reshape(-1, 1))[0]
-        # kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
         energy = np.sum(data**2)
         output_array = [mean, std, variance, range, peak_to_peak_amplitude,
                         mad, root_mean_square, interquartile_range, percentile_75,
@@ -132,8 +143,6 @@ class Training(threading.Thread):
         # Combine the processed data for each group into a single array
         processed_data_arr = np.concatenate(processed_data)
 
-        print(f"len processed_data_arr={len(processed_data_arr)}\n")
-
         return processed_data_arr
     
     def PCA_MLP(self, data):
@@ -166,28 +175,30 @@ class Training(threading.Thread):
     def instantMLP(self, data):
         # Load the model from file and preproessing
         # localhost
-        # mlp = joblib.load('mlp_model.joblib')
+        mlp = joblib.load('mlp_model.joblib')
         # scaler = joblib.load('scaler.joblib')
         # pca = joblib.load('pca.joblib')
         
         # board
-        mlp = joblib.load('/home/xilinx/mlp_model.joblib')
-        scaler = joblib.load('/home/xilinx/scaler.joblib')
-        pca = joblib.load('/home/xilinx/pca.joblib')
+        # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+        # scaler = joblib.load('/home/xilinx/scaler.joblib')
+        # pca = joblib.load('/home/xilinx/pca.joblib')
 
-        # Preprocess data
-        test_data_std = scaler.transform(data.reshape(1,-1))
-        test_data_pca = pca.transform(test_data_std)
+        # sample data for sanity check
+        test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1,-1)
 
-        # Use MLP 
-        predicted_labels = mlp.predict(test_data_pca)
-        predicted_label = str(predicted_labels[0].item()) # return single char
+        # Scaler
+        test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
 
-        # print predicted label of MLP predicted_label
-        print(f"MLP lib predicted: {predicted_label} \n")
+        # PCA
+        test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
 
+        print(f"test_input_math_pca.shape: {test_input_math_pca.shape}\n")
 
-        predicted_labels = self.PCA_MLP(test_data_pca) # return 1x4 softmax array
+        # MLP
+        # predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
+        predicted_labels = mlp.predict(test_input_math_pca)
+        print(f"MLP overlay predicted: {predicted_labels} \n")
 
         np_output = np.array(predicted_labels)
         largest_index = np_output.argmax()
@@ -216,7 +227,7 @@ class Training(threading.Thread):
         while f:
             f = False
 
-            df = pd.DataFrame(columns=self.columns)
+            df = pd.DataFrame(np.zeros((500, len(self.columns))), columns=self.columns)
             # Define the window size and threshold factor
             window_size = 11
             threshold_factor = 2
@@ -234,14 +245,11 @@ class Training(threading.Thread):
             wave = self.generate_simulated_wave()
             i = 0
             timenow = 0
+            buffer_index = 0
 
             print(f"entering while loop \n")
 
             while True:
-                # Create plot window
-                # plt.ion()
-                # plt.show()
-
                 data = self.generate_simulated_data()
                 self.sleep(0.05)
                 print("Data: ")
@@ -249,10 +257,15 @@ class Training(threading.Thread):
                 print("\n")
 
                 # Append new data to dataframe
-                df.loc[len(df)] = data
+                df.iloc[buffer_index] = data
+
+                # Increment buffer index and reset to zero if we reach the end of the buffer
+                buffer_index += 1
+                if buffer_index >= 500:
+                    buffer_index = 0
 
                 # Compute absolute acceleration values
-                # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
+                # x.append(np.abs(data[3:6])) # abs of accX, accY, accZ
                 x.append(wave[i]) # abs of accX, accY, accZ
 
                 # time
@@ -270,20 +283,20 @@ class Training(threading.Thread):
                 else:
                     past_filtered = filtered[-window_size:]
                     threshold.append(np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
-
+                
                 # Identify movement
                 if len(filtered) > window_size:
                     # checking if val is past threshold and if last movement was more than N samples ago
-                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-                        movement_detected.append(len(df) - 1)
-                        last_movement_time = len(t)  # update last movement time
-                        print(f"Movement detected at sample {len(df) - 1}")
+                    if np.all(filtered[-1] > threshold[-1]) and len(filtered) - last_movement_time >= N:
+                        movement_detected.append(buffer_index)
+                        last_movement_time = len(filtered)  # update last movement time
+                        print(f"Movement detected at sample {buffer_index}")
 
                 # if movement has been detected for more than N samples, preprocess and feed into neural network
-                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+                if len(movement_detected) > 0 and buffer_index - movement_detected[-1] >= N:
                     # extract movement data
                     start = movement_detected[-1]
-                    end = len(df)
+                    end = buffer_index if buffer_index > start else buffer_index + 500
                     movement_data = df.iloc[start:end, :]
 
                     # print the start and end index of the movement
@@ -291,12 +304,8 @@ class Training(threading.Thread):
 
                     # perform data preprocessing
                     preprocessed_data = self.preprocess_dataset(movement_data)
-
-                    # print preprocessed data
-                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
-                    
+               
                     # feed preprocessed data into neural network
-                    # output = self.MLP(preprocessed_data) 
                     predicted_label = self.instantMLP(preprocessed_data)
                     
                     print(f"output from MLP: \n {predicted_label} \n") # print output of MLP
