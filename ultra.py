@@ -12,8 +12,9 @@ import scipy.signal as sig
 from scipy import signal, stats
 from scipy.stats import entropy, kurtosis, skew
 import joblib
-import pynq
-from pynq import Overlay
+import json
+# import pynq
+# from pynq import Overlay
 
 
 class Training(threading.Thread):
@@ -51,12 +52,12 @@ class Training(threading.Thread):
 
         self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
         # PYNQ overlay
-        self.overlay = Overlay("pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
+        # self.overlay = Overlay("pca_mlp_1.bit")
+        # self.dma = self.overlay.axi_dma_0
 
-        # Allocate input and output buffers once
-        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        # # Allocate input and output buffers once
+        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -175,13 +176,13 @@ class Training(threading.Thread):
         return self.out_buffer
     
 
-     def instantMLP(self, data):
+    def instantMLP(self, data):
         # Load the model from file and preproessing
         # localhost
-        # mlp = joblib.load('mlp_model.joblib')
+        mlp = joblib.load('mlp_model.joblib')
 
         # board
-        mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+        # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
 
         # sample data for sanity check
         test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1,-1)
@@ -210,20 +211,24 @@ class Training(threading.Thread):
         #         -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
 
         # assert np.allclose(test_input_math_pca, arr)
+
         # MLP
-        predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
-        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        # predicted_lib_labels = mlp.predict(test_input_math_pca.reshape(1, -1)) 
-        # print(f"MLP lib overlay predicted: {predicted_lib_labels} \n")
+        # predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
+        # print(f"MLP pynq overlay predicted: {predicted_labels} \n")
+        # np_output = np.array(predicted_labels)
+        # largest_index = np_output.argmax()
 
-        np_output = np.array(predicted_labels)
-        largest_index = np_output.argmax()
+        # predicted_label = self.action_map[largest_index]
 
-        predicted_label = self.action_map[largest_index]
+        # # print largest index and largest action of MLP output
+        # print(f"largest index: {largest_index} \n")
+        # print(f"MLP overlay predicted: {predicted_label} \n")
 
-        # print largest index and largest action of MLP output
-        print(f"largest index: {largest_index} \n")
-        print(f"MLP overlay predicted: {predicted_label} \n")
+
+        predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1)) 
+        print(f"MLP lib overlay predicted: {predicted_label} \n")
+
+        
 
         # output is a single char
         return predicted_label
@@ -237,48 +242,44 @@ class Training(threading.Thread):
     def run(self):
         
         # live integration loop
+        df = pd.DataFrame(np.zeros((500, len(self.columns))), columns=self.columns)
+        # Define the window size and threshold factor
+        window_size = 11
+        threshold_factor = 2
+
+        # Define N units for flagging movement, 20Hz -> 2s = 40 samples
+        N = 40
+
+        # Initialize empty arrays for data storage
+        x = []
+        filtered = []
+        threshold = []
+        movement_detected = []
+        last_movement_time = -N  # set last movement time to negative N seconds ago
+        wave = self.generate_simulated_wave()
+        i = 0
+        buffer_index = 0
+
         # while not self.shutdown.is_set():
-        f = True
-        while f:
-            f = False
-
-            df = pd.DataFrame(columns=self.columns)
-            # Define the window size and threshold factor
-            window_size = 11
-            threshold_factor = 2
-
-            # Define N units for flagging movement, 20Hz -> 2s = 40 samples
-            N = 40
-
-            # Initialize empty arrays for data storage
-            t = []
-            x = []
-            filtered = []
-            threshold = []
-            movement_detected = []
-            last_movement_time = -N  # set last movement time to negative N seconds ago
-            wave = self.generate_simulated_wave()
-            i = 0
-            timenow = 0
-
-            print(f"entering while loop \n")
-
-            while True:
-                data = self.generate_simulated_data() # TODO - refactor for real data
+        while True:
+                data = self.generate_simulated_data()
                 self.sleep(0.05)
                 print("Data: ")
                 print(" ".join([f"{x:.8g}" for x in data]))
                 print("\n")
 
                 # Append new data to dataframe
-                df.loc[len(df)] = data
+                df.iloc[buffer_index] = data
+
+                # Increment buffer index and reset to zero if we reach the end of the buffer
+                buffer_index += 1
+                if buffer_index >= 500:
+                    buffer_index = 0
 
                 # Compute absolute acceleration values
-                # x.append(np.abs(data[3:6])) # abs of accX, accY, accZ - # TODO - use this for real data
+                # x.append(np.abs(data[3:6])) # abs of accX, accY, accZ
                 x.append(wave[i]) # abs of accX, accY, accZ
 
-                # time
-                t.append(timenow)
 
                 # Compute moving window median
                 if len(x) < window_size:
@@ -292,20 +293,20 @@ class Training(threading.Thread):
                 else:
                     past_filtered = filtered[-window_size:]
                     threshold.append(np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
-
+                
                 # Identify movement
                 if len(filtered) > window_size:
                     # checking if val is past threshold and if last movement was more than N samples ago
-                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-                        movement_detected.append(len(df) - 1)
-                        last_movement_time = len(t)  # update last movement time
-                        print(f"Movement detected at sample {len(df) - 1}")
+                    if np.all(filtered[-1] > threshold[-1]) and len(filtered) - last_movement_time >= N:
+                        movement_detected.append(buffer_index)
+                        last_movement_time = len(filtered)  # update last movement time
+                        print(f"Movement detected at sample {buffer_index}")
 
                 # if movement has been detected for more than N samples, preprocess and feed into neural network
-                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+                if len(movement_detected) > 0 and buffer_index - movement_detected[-1] >= N:
                     # extract movement data
                     start = movement_detected[-1]
-                    end = len(df)
+                    end = buffer_index if buffer_index > start else buffer_index + 500
                     movement_data = df.iloc[start:end, :]
 
                     # print the start and end index of the movement
@@ -313,12 +314,8 @@ class Training(threading.Thread):
 
                     # perform data preprocessing
                     preprocessed_data = self.preprocess_dataset(movement_data)
-
-                    # print preprocessed data
-                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
-                    
+            
                     # feed preprocessed data into neural network
-                    # output = self.MLP(preprocessed_data) 
                     predicted_label = self.instantMLP(preprocessed_data)
                     
                     print(f"output from MLP: \n {predicted_label} \n") # print output of MLP
@@ -327,8 +324,6 @@ class Training(threading.Thread):
                     movement_detected.clear()
 
                 i += 1
-                timenow += 1
-
                 if i == 200:
                     i = 0
 
