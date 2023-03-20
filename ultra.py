@@ -258,10 +258,6 @@ class Training(threading.Thread):
             print(f"entering while loop \n")
 
             while True:
-                # Create plot window
-                # plt.ion()
-                # plt.show()
-
                 data = self.generate_simulated_data() # TODO - refactor for real data
                 self.sleep(0.05)
                 print("Data: ")
@@ -272,7 +268,7 @@ class Training(threading.Thread):
                 df.loc[len(df)] = data
 
                 # Compute absolute acceleration values
-                # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ - # TODO - use this for real data
+                # x.append(np.abs(data[3:6])) # abs of accX, accY, accZ - # TODO - use this for real data
                 x.append(wave[i]) # abs of accX, accY, accZ
 
                 # time
