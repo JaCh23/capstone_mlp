@@ -186,14 +186,6 @@ class Training(threading.Thread):
         # sample data for sanity check
         test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1,-1)
 
-        # Scaler
-        test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
-        print(f"test_input_rescaled: {test_input_rescaled}\n")
-
-        # PCA
-        test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
-        print(f"test_input_math_pca: {test_input_math_pca}\n")
-
         arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
                 2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
                 0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
@@ -201,12 +193,28 @@ class Training(threading.Thread):
                 4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
                 -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
 
-        assert np.allclose(test_input_math_pca, arr)
+        # Scaler
+        # test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
+        test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
+        print(f"test_input_rescaled: {test_input_rescaled}\n")
+
+        # PCA
+        test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
+        print(f"test_input_math_pca: {test_input_math_pca}\n")
+
+        # arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
+        #         2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
+        #         0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
+        #         4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
+        #         4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
+        #         -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
+
+        # assert np.allclose(test_input_math_pca, arr)
         # MLP
-        predicted_labels = self.PCA_MLP(arr) # return 1x4 softmax array
+        predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
         print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        predicted_lib_labels = mlp.predict(arr.reshape(1, -1))
-        print(f"MLP lib overlay predicted: {predicted_lib_labels} \n")
+        # predicted_lib_labels = mlp.predict(test_input_math_pca.reshape(1, -1)) 
+        # print(f"MLP lib overlay predicted: {predicted_lib_labels} \n")
 
         np_output = np.array(predicted_labels)
         largest_index = np_output.argmax()
@@ -256,11 +264,7 @@ class Training(threading.Thread):
             print(f"entering while loop \n")
 
             while True:
-                # Create plot window
-                # plt.ion()
-                # plt.show()
-
-                data = self.generate_simulated_data()
+                data = self.generate_simulated_data() # TODO - refactor for real data
                 self.sleep(0.05)
                 print("Data: ")
                 print(" ".join([f"{x:.8g}" for x in data]))
@@ -270,7 +274,7 @@ class Training(threading.Thread):
                 df.loc[len(df)] = data
 
                 # Compute absolute acceleration values
-                # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
+                # x.append(np.abs(data[3:6])) # abs of accX, accY, accZ - # TODO - use this for real data
                 x.append(wave[i]) # abs of accX, accY, accZ
 
                 # time
