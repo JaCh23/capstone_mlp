@@ -230,20 +230,21 @@ class Training(threading.Thread):
 
     def run(self):
         # live integration loop
+        window_size = 11
+        threshold_factor = 2
+
         buffer_size = 500
         buffer = np.zeros((buffer_size, len(self.columns)))
         # Define the window size and threshold factor
-        window_size = 11
-        threshold_factor = 2
+        
 
         # Define N units for flagging movement, 20Hz -> 2s = 40 samples
         N = 40
 
         # Initialize empty arrays for data storage
-        x = []
-        filtered = []
-        threshold = []
-        movement_detected = []
+        x = np.zeros(buffer_size)
+        filtered = np.zeros(buffer_size)
+        threshold = np.zeros(buffer_size)
         last_movement_time = -N  # set last movement time to negative N seconds ago
         wave = self.generate_simulated_wave()
         i = 0
@@ -260,46 +261,44 @@ class Training(threading.Thread):
                 # Append new data
                 buffer[buffer_index] = data
 
-                # Increment buffer index and reset to zero if we reach the end of the buffer
-                buffer_index += 1
-                if buffer_index >= buffer_size:
-                    buffer_index = 0
+                # Update circular buffer index
+                buffer_index = (buffer_index + 1) % buffer_size
 
                 # Compute absolute acceleration values
-                # x[buffer_index - window_size] = np.abs(data[3:6])  # abs of accX, accY, accZ
-                x.append(wave[i]) # abs of accX, accY, accZ
+                # x[buffer_index] = np.abs(data[3:6])  # abs of accX, accY, accZ
+                x[buffer_index] = wave[i] # abs of accX, accY, accZ
 
                 i += 1
                 if i >= len(wave):
                     i = 0
 
                 # Compute moving window median
-                if len(x) < window_size:
-                    filtered.append(0)
+                if buffer_index < window_size:
+                    filtered[buffer_index] = 0
                 else:
-                    filtered.append(np.median(x[-window_size:], axis=0))
+                    filtered[buffer_index] = np.median(x[buffer_index-window_size+1:buffer_index+1], axis=0)
 
                 # Compute threshold using past median data, threshold = mean + k * std
-                if len(filtered) < window_size:
-                    threshold.append(0)
+                if buffer_index < window_size:
+                    threshold[buffer_index] = 0
                 else:
-                    past_filtered = filtered[-window_size:]
-                    threshold.append(np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
+                    past_filtered = filtered[buffer_index-window_size+1:buffer_index+1]
+                    threshold[buffer_index] = np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0))
 
                 # Identify movement
-                if len(filtered) > window_size:
-                    # checking if val is past threshold and if last movement was more than N samples ago
-                    if np.all(filtered[-1] > threshold[-1]) and len(filtered) - last_movement_time >= N:
-                        movement_detected.append(buffer_index)
-                        last_movement_time = len(filtered)  # update last movement time
-                        print(f"Movement detected at sample {buffer_index}")
+                if buffer_index >= window_size and np.all(filtered[buffer_index] > threshold[buffer_index]) and buffer_index - last_movement_time >= N:
+                    last_movement_time = buffer_index  # update last movement time
+                    print(f"Movement detected at sample {buffer_index}")
 
-                # if movement has been detected for more than N samples, preprocess and feed into neural network
-                if len(movement_detected) > 0 and buffer_index - movement_detected[-1] >= N:
+                # if N samples from last movement time have been accumulated, preprocess and feed into neural network
+                if (buffer_index - last_movement_time) % buffer_size == N-1:
                     # extract movement data
-                    start = movement_detected[-1]
-                    end = buffer_index if buffer_index > start else buffer_index + buffer_size
-                    movement_data = buffer[start:end, :]
+                    start = (last_movement_time + 1) % buffer_size
+                    end = (buffer_index + 1) % buffer_size
+                    if end <= start:
+                        movement_data = np.concatenate((buffer[start:, :], buffer[:end, :]), axis=0)
+                    else:
+                        movement_data = buffer[start:end, :]
 
                     # print the start and end index of the movement
                     print(f"Processing movement detected from sample {start} to {end}")
@@ -312,8 +311,6 @@ class Training(threading.Thread):
                     
                     print(f"output from MLP: \n {predicted_label} \n") # print output of MLP
 
-                    # reset movement_detected list
-                    movement_detected.clear()
 
             # except Exception as _:
             #     traceback.print_exc()
