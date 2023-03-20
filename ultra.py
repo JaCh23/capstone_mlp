@@ -38,9 +38,25 @@ class Training(threading.Thread):
         # defining game action dictionary
         self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
 
+        # load PCA model
+        # read the contents of the arrays.txt file
+        with open("arrays.txt", "r") as f:
+            data = json.load(f)
+
+        # extract the weights and bias arrays
+        self.scaling_factor = data['scaling_factor']
+        self.mean = data['mean']
+        self.variance = data['variance']
+        self.pca_eigvecs_list = data['pca_eigvecs_list']
+
+        self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
         # PYNQ overlay
         self.overlay = Overlay("pca_mlp_1.bit")
         self.dma = self.overlay.axi_dma_0
+
+        # Allocate input and output buffers once
+        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -48,12 +64,12 @@ class Training(threading.Thread):
             pass
 
     def generate_simulated_data(self):
-        gx = random.uniform(-180, 180)
-        gy = random.uniform(-180, 180)
-        gz = random.uniform(-180, 180)
-        accX = random.uniform(-9000, 9000)
-        accY = random.uniform(-9000, 9000)
-        accZ = random.uniform(-9000, 9000)
+        gx = random.uniform(-9, 9) # TODO - assumption: gyro x,y,z change btwn -9 to 9
+        gy = random.uniform(-9, 9)
+        gz = random.uniform(-9, 9)
+        accX = random.uniform(-9, 9)
+        accY = random.uniform(-9, 9)
+        accZ = random.uniform(-9, 9)
         return [gx, gy, gz, accX, accY, accZ]
     
     # simulate game movement with noise and action
@@ -138,65 +154,67 @@ class Training(threading.Thread):
     
     def PCA_MLP(self, data):
         start_time = time.time()
-        # allocate in and out buffer
-        in_buffer = pynq.allocate(shape=(35,), dtype=np.double) # 1x35 PCA input
-        out_buffer = pynq.allocate(shape=(4,), dtype=np.double) # 1x4 softmax output
 
         # reshape data to match in_buffer shape
         data = np.reshape(data, (35,))
 
-        for i, val in enumerate(data):
-            in_buffer[i] = val
+        self.in_buffer[:] = data
 
-        self.dma.sendchannel.transfer(in_buffer)
-        self.dma.recvchannel.transfer(out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
         # wait for transfer to finish
         self.dma.sendchannel.wait()
         self.dma.recvchannel.wait()
 
         # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in out_buffer))
-        
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+
         print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        return out_buffer
+        return self.out_buffer
     
 
-    def instantMLP(self, data):
+     def instantMLP(self, data):
         # Load the model from file and preproessing
         # localhost
         # mlp = joblib.load('mlp_model.joblib')
-        # scaler = joblib.load('scaler.joblib')
-        # pca = joblib.load('pca.joblib')
-        
+
         # board
         mlp = joblib.load('/home/xilinx/mlp_model.joblib')
-        scaler = joblib.load('/home/xilinx/scaler.joblib')
-        pca = joblib.load('/home/xilinx/pca.joblib')
 
-        # Preprocess data
-        test_data_std = scaler.transform(data.reshape(1,-1))
-        test_data_pca = pca.transform(test_data_std)
+        # sample data for sanity check
+        test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1,-1)
 
-        # Use MLP 
-        predicted_labels = mlp.predict(test_data_pca)
-        predicted_label = str(predicted_labels[0].item()) # return single char
+        # Scaler
+        test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
+        print(f"test_input_rescaled: {test_input_rescaled}\n")
 
-        # print predicted label of MLP predicted_label
-        print(f"MLP lib predicted: {predicted_label} \n")
+        # PCA
+        test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
+        print(f"test_input_math_pca: {test_input_math_pca}\n")
 
+        arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
+                2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
+                0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
+                4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
+                4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
+                -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
 
-        predicted_labels = self.PCA_MLP(test_data_pca) # return 1x4 softmax array
+        assert np.allclose(test_input_math_pca, arr)
+        # MLP
+        predicted_labels = self.PCA_MLP(arr) # return 1x4 softmax array
+        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
+        predicted_lib_labels = mlp.predict(arr.reshape(1, -1))
+        print(f"MLP lib overlay predicted: {predicted_lib_labels} \n")
 
         np_output = np.array(predicted_labels)
         largest_index = np_output.argmax()
 
-        # predicted_label = self.action_map[largest_index]
         predicted_label = self.action_map[largest_index]
 
         # print largest index and largest action of MLP output
-        # print(f"largest index: {largest_index} \n")
+        print(f"largest index: {largest_index} \n")
         print(f"MLP overlay predicted: {predicted_label} \n")
 
         # output is a single char
