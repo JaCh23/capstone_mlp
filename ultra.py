@@ -106,47 +106,46 @@ class Training(threading.Thread):
         root_mean_square = np.sqrt(np.mean(np.square(data)))
         interquartile_range = stats.iqr(data)
         percentile_75 = np.percentile(data, 75)
-        # skewness = stats.skew(data.reshape(-1, 1))[0]
-        # kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
         energy = np.sum(data**2)
-        output_array = [mean, std, variance, range, peak_to_peak_amplitude,
-                        mad, root_mean_square, interquartile_range, percentile_75,
-                        energy]
+        
+        output_array = np.empty((1, 10))
+        output_array[0] = [mean, std, variance, range, peak_to_peak_amplitude, mad, root_mean_square, interquartile_range, percentile_75, energy]                 
 
-        output_array = np.array(output_array)                        
-
-        return output_array.reshape(1, -1)
+        return output_array
     
-    def preprocess_dataset(self, df):
+    def preprocess_dataset(self, arr):
         processed_data = []
 
         # Set the window size for the median filter
         window_size = 7
 
-        # Apply the median filter to each column of the DataFrame
+        df = pd.DataFrame(arr)
         df_filtered = df.rolling(window_size, min_periods=1, center=True).median()
 
-        df = df_filtered
+        arr = df_filtered.values
 
         # Split the rows into 8 groups
         group_size = 5
-        data_groups = [df.iloc[i:i+group_size,:] for i in range(0, len(df), group_size)]
+        num_groups = 8
 
         # Loop through each group and column, and compute features
-        for group in data_groups:
+        for i in range(num_groups):
+            start_idx = i * group_size
+            end_idx = start_idx + group_size
+            group = arr[start_idx:end_idx, :]
+            
             group_data = []
-            for column in df.columns:
-                column_data = group[column].values
+            for column in range(arr.shape[1]):
+                column_data = group[:,column]
                 column_data = column_data.reshape(1, -1)
 
                 temp_processed = self.preprocess_data(column_data)
                 temp_processed = temp_processed.flatten()
 
                 group_data.append(temp_processed)
-                
+
             processed_data.append(np.concatenate(group_data))
 
-        # Combine the processed data for each group into a single array
         processed_data_arr = np.concatenate(processed_data)
 
         print(f"len processed_data_arr={len(processed_data_arr)}\n")
@@ -187,13 +186,6 @@ class Training(threading.Thread):
         # sample data for sanity check
         test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1,-1)
 
-        arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
-                2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
-                0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
-                4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
-                4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
-                -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
-
         # Scaler
         # test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
         test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
@@ -203,14 +195,14 @@ class Training(threading.Thread):
         test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
         print(f"test_input_math_pca: {test_input_math_pca}\n")
 
-        # arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
-        #         2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
-        #         0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
-        #         4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
-        #         4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
-        #         -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
+        arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
+                2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
+                0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
+                4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
+                4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
+                -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
 
-        # assert np.allclose(test_input_math_pca, arr)
+        assert np.allclose(test_input_math_pca, arr)
 
         # MLP
         # predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
@@ -224,11 +216,8 @@ class Training(threading.Thread):
         # print(f"largest index: {largest_index} \n")
         # print(f"MLP overlay predicted: {predicted_label} \n")
 
-
         predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1)) 
         print(f"MLP lib overlay predicted: {predicted_label} \n")
-
-        
 
         # output is a single char
         return predicted_label
@@ -240,9 +229,9 @@ class Training(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        
         # live integration loop
-        df = pd.DataFrame(np.zeros((500, len(self.columns))), columns=self.columns)
+        buffer_size = 500
+        buffer = np.zeros((buffer_size, len(self.columns)))
         # Define the window size and threshold factor
         window_size = 11
         threshold_factor = 2
@@ -268,18 +257,21 @@ class Training(threading.Thread):
                 print(" ".join([f"{x:.8g}" for x in data]))
                 print("\n")
 
-                # Append new data to dataframe
-                df.iloc[buffer_index] = data
+                # Append new data
+                buffer[buffer_index] = data
 
                 # Increment buffer index and reset to zero if we reach the end of the buffer
                 buffer_index += 1
-                if buffer_index >= 500:
+                if buffer_index >= buffer_size:
                     buffer_index = 0
 
                 # Compute absolute acceleration values
-                # x.append(np.abs(data[3:6])) # abs of accX, accY, accZ
+                # x[buffer_index - window_size] = np.abs(data[3:6])  # abs of accX, accY, accZ
                 x.append(wave[i]) # abs of accX, accY, accZ
 
+                i += 1
+                if i >= len(wave):
+                    i = 0
 
                 # Compute moving window median
                 if len(x) < window_size:
@@ -293,7 +285,7 @@ class Training(threading.Thread):
                 else:
                     past_filtered = filtered[-window_size:]
                     threshold.append(np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
-                
+
                 # Identify movement
                 if len(filtered) > window_size:
                     # checking if val is past threshold and if last movement was more than N samples ago
@@ -306,8 +298,8 @@ class Training(threading.Thread):
                 if len(movement_detected) > 0 and buffer_index - movement_detected[-1] >= N:
                     # extract movement data
                     start = movement_detected[-1]
-                    end = buffer_index if buffer_index > start else buffer_index + 500
-                    movement_data = df.iloc[start:end, :]
+                    end = buffer_index if buffer_index > start else buffer_index + buffer_size
+                    movement_data = buffer[start:end, :]
 
                     # print the start and end index of the movement
                     print(f"Processing movement detected from sample {start} to {end}")
@@ -322,10 +314,6 @@ class Training(threading.Thread):
 
                     # reset movement_detected list
                     movement_detected.clear()
-
-                i += 1
-                if i == 200:
-                    i = 0
 
             # except Exception as _:
             #     traceback.print_exc()
