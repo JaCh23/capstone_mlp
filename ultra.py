@@ -196,8 +196,8 @@ class AIModel(threading.Thread):
     def run(self):
         # live integration loop
 
-        # Set the threshold value for movement detection
-        K = 5
+        # Set the threshold value for movement detection based on user input
+        K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
         current_packet = np.zeros((6,6))
