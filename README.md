@@ -1,4 +1,6 @@
-# capstone_mlp
+# capstone_mlp v3 - movement vector analysis
+
+(Last edited 260323)
 
 ## File Dependencies
 
@@ -19,14 +21,8 @@ How to run code
 3. export XILINX_XRT=/usr
 4. python3 ultra.py
 
-Output should look something like this with the MLP being triggered around once every 2-5 seconds
-![image](https://user-images.githubusercontent.com/24263853/226246431-7412900e-b46c-4c25-8354-6f245a17c75a.png)
-
 ## Instructions for Ext Comms
 
-Where to refactor to demo with live data - 3 TODOs as shown here.
+![image](https://user-images.githubusercontent.com/24263853/227785259-d4497889-6323-4880-a4e8-3896bf70c17b.png)
 
-![image](https://user-images.githubusercontent.com/24263853/226247141-7d0a540b-42cb-4883-b364-a20d0526195c.png)
-
-
-![image](https://user-images.githubusercontent.com/24263853/226247211-d399dc3a-7994-4f03-9a98-d79016b26a9b.png)
+![image](https://user-images.githubusercontent.com/24263853/227785277-90e0dd91-4821-4d44-a474-874cc2f8732b.png)
