@@ -23,6 +23,6 @@ How to run code
 
 ## Instructions for Ext Comms
 
-![image](https://user-images.githubusercontent.com/24263853/227785259-d4497889-6323-4880-a4e8-3896bf70c17b.png)
+![image](https://user-images.githubusercontent.com/24263853/227785317-bc19a23a-e920-4279-828f-0fbff27af7ff.png)
 
 ![image](https://user-images.githubusercontent.com/24263853/227785277-90e0dd91-4821-4d44-a474-874cc2f8732b.png)
