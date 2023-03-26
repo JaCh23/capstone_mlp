@@ -187,61 +187,69 @@ class AIModel(threading.Thread):
         data_packet = np.zeros((40,6))
         is_movement_counter = 0
         movement_watchdog = False
+        loop_count = 0
 
         # live integration loop
         while True:
-            # runs loop 6 times and packs the data into groups of 6
-            for i in range(5):
-                new_data = np.random.randn(6) # TODO refactor for real data
-                # print(" ".join([f"{x:.3f}" for x in new_data]))
-            
-                current_packet[i] = new_data
-            
-            curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
-            prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
+            # if ai_queue: # TODO re-enable for live integration
+            if 1 == 1: # TODO DIS-enable for live integration
+                # runs loop 6 times and packs the data into groups of 6
 
-            # Check for movement detection
-            if not movement_watchdog and curr_mag - prev_mag > K:
-                print("Movement detected!")
-                # print currr and prev mag for sanity check
-                print(f"curr_mag: {curr_mag} \n")
-                print(f"prev_mag: {prev_mag} \n")
-                movement_watchdog = True
-                # append previous and current packet to data packet
-                data_packet = np.concatenate((previous_packet, current_packet), axis=0)
-
-            # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
-            if movement_watchdog:
-                if is_movement_counter < 6:
-                    data_packet = np.concatenate((data_packet, current_packet), axis=0)
-                    is_movement_counter += 1
+                    # q_data = ai_queue.get() # TODO re-enable for live integration
+                    # ai_queue.task_done() # TODO re-enable for live integration
+                    # new_data = np.array(q_data) # TODO re-enable for live integration
+                    # new_data[-3:] = [x/100.0 for x in new_data[-3:]] # TODO re-enable for live integration
+                    
+                    new_data = np.random.randn(6) # TODO DIS-enable for live integration
+                    # print(" ".join([f"{x:.3f}" for x in new_data]))
                 
-                # If we've seen 6 packets since the last movement detection, preprocess and classify the data
-                else:
-                    # print dimensions of data packet
-                    # print(f"data_packet dimensions: {data_packet.shape} \n")
+                    # Pack the data into groups of 6
+                    current_packet[loop_count] = new_data
+                
+                    # Update loop_count
+                    loop_count = (loop_count + 1) % 5
 
-                    # rng_test_action = self.rng_test_action() # TODO uncomment dummy data
-                    # action = self.AIDriver(rng_test_action) # TODO uncomment dummy data
+                    if loop_count % 5 == 0:
+                        curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+                        prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
-                    action = self.AIDriver(data_packet) # TODO uncomment for live integration
-                    print(f"action from MLP in main: \n {action} \n")  # print output of MLP
+                        # Check for movement detection
+                        if not movement_watchdog and curr_mag - prev_mag > K:
+                            print("Movement detected!")
+                            # print currr and prev mag for sanity check
+                            print(f"curr_mag: {curr_mag} \n")
+                            print(f"prev_mag: {prev_mag} \n")
+                            movement_watchdog = True
+                            # append previous and current packet to data packet
+                            data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
-                    # movement_watchdog deactivated, reset is_movement_counter
-                    movement_watchdog = False
-                    is_movement_counter = 0
-                    # reset arrays to zeros
-                    current_packet = np.zeros((5,6))
-                    previous_packet = np.zeros((5,6))
-                    data_packet = np.zeros((40,6))
+                        # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
+                        if movement_watchdog:
+                            if is_movement_counter < 6:
+                                data_packet = np.concatenate((data_packet, current_packet), axis=0)
+                                is_movement_counter += 1
+                            
+                            # If we've seen 6 packets since the last movement detection, preprocess and classify the data
+                            else:
+                                # print dimensions of data packet
+                                # print(f"data_packet dimensions: {data_packet.shape} \n")
 
-            # Update the previous packet
-            previous_packet = current_packet.copy()
-            
-            # except Exception as _:
-            #     traceback.print_exc()
-            #     self.close_connection()
-            #     print("an error occurred")
+                                rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
+                                action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+
+                                # action = self.AIDriver(data_packet) # TODO re-enable for live integration
+                                print(f"action from MLP in main: {action} \n")  # print output of MLP
+
+                                # movement_watchdog deactivated, reset is_movement_counter
+                                movement_watchdog = False
+                                is_movement_counter = 0
+                                # reset arrays to zeros
+                                current_packet = np.zeros((5,6))
+                                previous_packet = np.zeros((5,6))
+                                data_packet = np.zeros((40,6))
+
+                        # Update the previous packet
+                        previous_packet = current_packet.copy()
 
 
 if __name__ == '__main__':
