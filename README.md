@@ -5,10 +5,10 @@
 The following files are required for this project:
 
 - ultra.py (MAIN) 
+- all_arrays.json (Scaler, PCA, MLP arrays)
+- test_actions.json (Test data of one Grenade, Shield, Logout)
 - pca_mlp_1.bit (Hardware)
 - pca_mlp_1.hwh (Hardware)
-- arrays.txt (Scaler and PCA arrays)
-- mlp_model.joblib (Used for sanity check but can remove)
 
 ## Instructions
 
