@@ -115,8 +115,8 @@ class AIModel(threading.Thread):
         # choose a random action from the list
         chosen_action = random.choice(self.test_actions)
         
-        # print chosen action
-        print(f'Chosen action: {chosen_action} \n')
+        # # print chosen action
+        # print(f'Chosen action: {chosen_action} \n')
         
         # use the chosen action to select the corresponding test data
         if chosen_action == 'G':
@@ -212,16 +212,16 @@ class AIModel(threading.Thread):
 
         # live integration loop
         while True:
-            # if ai_queue: # TODO re-enable for live integration
-            if 1 == 1: # TODO DIS-enable for live integration
+            if ai_queue: # TODO re-enable for live integration
+            # if 1 == 1: # TODO DIS-enable for live integration
                 # runs loop 6 times and packs the data into groups of 6
 
-                    # q_data = ai_queue.get() # TODO re-enable for live integration
-                    # ai_queue.task_done() # TODO re-enable for live integration
-                    # new_data = np.array(q_data) # TODO re-enable for live integration
-                    # new_data[-3:] = [x/100.0 for x in new_data[-3:]] # TODO re-enable for live integration
+                    q_data = ai_queue.get() # TODO re-enable for live integration
+                    ai_queue.task_done() # TODO re-enable for live integration
+                    new_data = np.array(q_data) # TODO re-enable for live integration
+                    new_data = new_data / 100.0 # TODO re-enable for live integration
                     
-                    new_data = np.random.randn(6) # TODO DIS-enable for live integration
+                    # new_data = np.random.randn(6) # TODO DIS-enable for live integration
                     # print(" ".join([f"{x:.3f}" for x in new_data]))
                 
                     # Pack the data into groups of 6
@@ -255,10 +255,10 @@ class AIModel(threading.Thread):
                                 # print dimensions of data packet
                                 # print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                                rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
-                                action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+                                # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
+                                # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
 
-                                # action = self.AIDriver(data_packet) # TODO re-enable for live integration
+                                action = self.AIDriver(data_packet) # TODO re-enable for live integration
                                 print(f"action from MLP in main: {action} \n")  # print output of MLP
 
                                 # movement_watchdog deactivated, reset is_movement_counter
