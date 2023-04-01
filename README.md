@@ -1,4 +1,4 @@
-# capstone mlp v3.2 - movement vector analysis
+# Capstone AI MLP V3.2
 
 (Last edited 010423)
 
@@ -9,8 +9,8 @@ The following files are required for this project:
 ultra.py (MAIN) 
 - features.npz (Scaler, PCA, MLP arrays)
 - test_actions.json (Test data of one Grenade, Shield, Logout, Reload)
-- pca_mlp_1.bit (Hardware bitstream)
-- pca_mlp_1.hwh (Hardware bitstream)
+- pca_mlp_2.bit (Hardware bitstream)
+- pca_mlp_2.hwh (Hardware bitstream)
 
 ## Summary
 - Used One Class SVM for data preprocessing to remove anomalies
@@ -19,11 +19,13 @@ ultra.py (MAIN)
     - Total displacement change over 3 axes
     - Top 2 axes dimension change
     - Finding ratios across all 3 movement axes
-- Feeding into PCA to obtain top X eigenvectors and components
-- Combining together into MLP 
+- Feeding into PCA to obtain top X eigenvectors aka components
+- Combining together into MLP to output classification
 
-## Revision HIstory 
+## Revision History 
 - V3: Movement Trajectory in 3D Space + PCA
+    - V3.2 Include Logout (NEW)
+    - V3.1 Excluded Logout
 - V2: Splintering into 8 sub-datasets per time quarter and conducting standard feature engineering techniques, eg mean variance median IQR
 - V1: Standard feature engineering techniques across all 6 data metrics Gyro X,Y,Z and Acc X,Y,Z
 
