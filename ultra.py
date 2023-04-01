@@ -21,19 +21,13 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        # Load all_arrays.json
-        with open('all_arrays.json', 'r') as f:
-            all_arrays = json.load(f)
-
-        # Retrieve values from all_arrays
-        self.scaling_factors = np.array(all_arrays['scaling_factors'])
-        self.mean = np.array(all_arrays['mean'])
-        self.variance = np.array(all_arrays['variance'])
-        self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
-        self.weights = [np.array(w) for w in all_arrays['weights']]
+        features = np.load('features.npz', allow_pickle=True)
+        self.mean = features['mean']
+        self.variance = features['variance']
+        self.pca_eigvecs = features['pca_eigvecs']
+        self.weights = features['weights_list']
 
         # Reshape scaling_factors, mean and variance to (1, 3)
-        self.scaling_factors = self.scaling_factors.reshape(40, 3)
         self.mean = self.mean.reshape(40, 3)
         self.variance = self.variance.reshape(40, 3)
 
@@ -102,6 +96,15 @@ class AIModel(threading.Thread):
         top_2_idx = abs_values.argsort()[-2:][::-1]
         return (top_2_idx[0], top_2_idx[1])
     
+    def get_metric_ratios(self, row):
+        row = np.array(row)
+        # Compute ratios of x, y, z metrics
+        return np.array([
+            row[0]/row[1],
+            row[0]/row[2],
+            row[1]/row[2]
+        ])
+    
     # Define Scaler
     def scaler(self, X):
         return (X - self.mean) / np.sqrt(self.variance)
@@ -116,7 +119,7 @@ class AIModel(threading.Thread):
         chosen_action = random.choice(self.test_actions)
         
         # # print chosen action
-        # print(f'Chosen action: {chosen_action} \n')
+        print(f'Chosen action: {chosen_action} \n')
         
         # use the chosen action to select the corresponding test data
         if chosen_action == 'G':
@@ -148,7 +151,7 @@ class AIModel(threading.Thread):
         return action
 
 
-    # def MLP_Overlay(self, data):
+    # def mlp_vivado(self, data):
     #     start_time = time.time()
 
     #     # reshape data to match in_buffer shape
@@ -170,24 +173,35 @@ class AIModel(threading.Thread):
 
     #     return self.out_buffer
 
+    def mlp_vivado_mockup(self, data):
+        action = data[0:120].reshape(40, 3)
+        scaled_action = self.scaler(action)
+        pca_action = self.pca(scaled_action.reshape(1,120))
+        mlp_input = np.hstack((pca_action.reshape(1,6), data[120:128].reshape(1,8)))
+        Y_softmax = self.mlp(mlp_input)
+        return Y_softmax
+
     def AIDriver(self, test_input):
         test_input = test_input.reshape(40, 6)
         acc_df = test_input[:, -3:]
         
         # Transform data using Scaler and PCA
         blurred_data, disp_change = self.blur_3d_movement(acc_df.reshape(40,3))
-        data_scaled = self.scaler(blurred_data)
-        data_pca = self.pca(data_scaled.reshape(1,120))
-
         top_2 = self.get_top_2_axes(disp_change)
+        metric_ratios = self.get_metric_ratios(disp_change)
 
-        mlp_input = np.hstack((np.array(data_pca), np.array(disp_change).reshape(1,3), np.array(top_2).reshape(1,2)))
+        vivado_input = np.hstack((np.array(blurred_data).reshape(1,120), 
+                          np.array(disp_change).reshape(1,3), 
+                          np.array(top_2).reshape(1,2),
+                          np.array(metric_ratios).reshape(1,3)
+                          )).flatten()
 
-        # Make predictions using MLP
-        predictions = self.mlp(mlp_input)
-        action = self.get_action(predictions)
+        # vivado_predictions = self.mlp_vivado(vivado_input)
+        vivado_predictions = self.mlp_vivado_mockup(vivado_input)
 
-        print(predictions)
+        action = self.get_action(vivado_predictions)
+
+        print(vivado_predictions)
         print(action)
 
         return action
@@ -212,16 +226,16 @@ class AIModel(threading.Thread):
 
         # live integration loop
         while True:
-            if ai_queue: # TODO re-enable for live integration
-            # if 1 == 1: # TODO DIS-enable for live integration
+            # if ai_queue: # TODO re-enable for live integration
+            if 1 == 1: # TODO DIS-enable for live integration
                 # runs loop 6 times and packs the data into groups of 6
 
-                    q_data = ai_queue.get() # TODO re-enable for live integration
-                    ai_queue.task_done() # TODO re-enable for live integration
-                    new_data = np.array(q_data) # TODO re-enable for live integration
-                    new_data = new_data / 100.0 # TODO re-enable for live integration
+                    # q_data = ai_queue.get() # TODO re-enable for live integration
+                    # ai_queue.task_done() # TODO re-enable for live integration
+                    # new_data = np.array(q_data) # TODO re-enable for live integration
+                    # new_data = new_data / 100.0 # TODO re-enable for live integration
                     
-                    # new_data = np.random.randn(6) # TODO DIS-enable for live integration
+                    new_data = np.random.randn(6) # TODO DIS-enable for live integration
                     # print(" ".join([f"{x:.3f}" for x in new_data]))
                 
                     # Pack the data into groups of 6
@@ -255,10 +269,10 @@ class AIModel(threading.Thread):
                                 # print dimensions of data packet
                                 # print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                                # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
-                                # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+                                rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
+                                action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
 
-                                action = self.AIDriver(data_packet) # TODO re-enable for live integration
+                                # action = self.AIDriver(data_packet) # TODO re-enable for live integration
                                 print(f"action from MLP in main: {action} \n")  # print output of MLP
 
                                 # movement_watchdog deactivated, reset is_movement_counter
