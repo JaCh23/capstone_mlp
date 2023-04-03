@@ -21,7 +21,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('features.npz', allow_pickle=True)
+        features = np.load('features_v3.3.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -32,7 +32,7 @@ class AIModel(threading.Thread):
         self.variance = self.variance.reshape(40, 3)
 
         # read in the test actions from the JSON file
-        with open('test_actions.json', 'r') as f:
+        with open('test_actions_v3.3.json', 'r') as f:
             test_actions = json.load(f)
 
         # extract the test data for each action from the dictionary
@@ -213,7 +213,7 @@ class AIModel(threading.Thread):
 
     def run(self):
         # Set the threshold value for movement detection based on user input
-        K = 10
+        K = 5
         # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
