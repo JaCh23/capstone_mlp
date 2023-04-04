@@ -1,6 +1,4 @@
-# Capstone AI MLP V3.3.2
-
-(Last edited 010423)
+# Capstone AI MLP 
 
 ## File Dependencies
 
@@ -13,23 +11,21 @@ ultra.py (MAIN)
 - pca_mlp_2.hwh (Hardware bitstream)
 
 ## Summary
-- Used One Class SVM for data preprocessing to remove anomalies
 - Applying Gaussian blur to 3d parabolic data traced by acceleration path
 - Feature engineering: 
-    - Total displacement change over 3 axes
+    - Total distance change over 3 axes
     - Top 2 axes dimension change
     - Finding ratios across all 3 movement axes
+    - Gap ratio for XZ axes to seive out Grenade actions
 - Feeding into PCA to obtain top X eigenvectors aka components
 - Combining together into MLP to output classification
 
 ## Revision History 
 - V3: Movement Trajectory in 3D Space + PCA
-    - V3.3 (Accidentally labelled as V3.3.3) Using half movement trajectories instead of complete movement (aka rest-to-rest), with and without logout
-    - (v3.3.3 - half moon with logout, v3.3.3.2 - half action without logout)
- 
+    - V3.5 Gap ratio feature engineering [NEW]
+    - V3.4 Distance feature
+    - V3.3 Half movement trajectories instead of complete movement 
     - V3.2 Include Logout 
-    - (V3.2.2 Accidentally labelled as V3.3.2 - Half action Grenade and all else full action)  
-   
     - V3.1 Excluded Logout
 - V2: Splintering into 8 sub-datasets per time quarter and conducting standard feature engineering techniques, eg mean variance median IQR
 - V1: Standard feature engineering techniques across all 6 data metrics Gyro X,Y,Z and Acc X,Y,Z
