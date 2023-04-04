@@ -6,7 +6,6 @@ import random
 import time
 import numpy as np
 import pandas as pd
-from scipy import stats
 import json
 from scipy.ndimage import gaussian_filter
 
