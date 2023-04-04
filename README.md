@@ -1,4 +1,4 @@
-# Capstone AI MLP 
+# Capstone AI MLP V3.5
 
 ## File Dependencies
 
@@ -7,11 +7,11 @@ The following files are required for this project:
 ultra.py (MAIN) 
 - features.npz (Scaler, PCA, MLP arrays)
 - test_actions.json (Test data of one Grenade, Shield, Logout, Reload)
-- pca_mlp_2.bit (Hardware bitstream)
-- pca_mlp_2.hwh (Hardware bitstream)
+- pca_mlp_3_5.bit (Hardware bitstream)
+- pca_mlp_3_5.hwh (Hardware bitstream)
 
 ## Summary
-- Applying Gaussian blur to 3d parabolic data traced by acceleration path
+- Applying Gaussian blur to 3D parabolic data traced by acceleration path
 - Feature engineering: 
     - Total distance change over 3 axes
     - Top 2 axes dimension change
