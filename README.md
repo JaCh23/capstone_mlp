@@ -1,4 +1,4 @@
-# Capstone AI MLP V3.2
+# Capstone AI MLP V3.3.2
 
 (Last edited 010423)
 
@@ -24,7 +24,12 @@ ultra.py (MAIN)
 
 ## Revision History 
 - V3: Movement Trajectory in 3D Space + PCA
-    - V3.2 Include Logout (NEW)
+    - V3.3 (Accidentally labelled as V3.3.3) Using half movement trajectories instead of complete movement (aka rest-to-rest), with and without logout
+    - (v3.3.3 - half moon with logout, v3.3.3.2 - half action without logout)
+ 
+    - V3.2 Include Logout 
+    - (V3.2.2 Accidentally labelled as V3.3.2 - Half action Grenade and all else full action)  
+   
     - V3.1 Excluded Logout
 - V2: Splintering into 8 sub-datasets per time quarter and conducting standard feature engineering techniques, eg mean variance median IQR
 - V1: Standard feature engineering techniques across all 6 data metrics Gyro X,Y,Z and Acc X,Y,Z
