@@ -16,7 +16,7 @@ ultra.py (MAIN)
     - Total distance change over 3 axes
     - Top 2 axes dimension change
     - Finding ratios across all 3 movement axes
-    - Gap ratio for XZ-axes to seive out Grenade actions
+    - Gap ratio for XZ axes to seive out Grenade actions
 - Feeding into PCA to obtain top X eigenvectors aka components
 - Combining together into MLP to output classification
 
