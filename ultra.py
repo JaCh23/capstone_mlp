@@ -11,7 +11,6 @@ from scipy.ndimage import gaussian_filter
 
 # import pynq
 # from pynq import Overlay
-
 class AIModel(threading.Thread):
     def __init__(self, player, action_engine_model, queue_added, K):
         super().__init__()
@@ -22,15 +21,15 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v3.5.npz', allow_pickle=True)
-        self.mean = features['mean']
-        self.variance = features['variance']
-        self.pca_eigvecs = features['pca_eigvecs']
+        features = np.load('dependencies/features_v1.2_newest.npz', allow_pickle=True)
+#         self.mean = features['mean']
+#         self.variance = features['variance']
+#         self.pca_eigvecs = features['pca_eigvecs']
         self.weights = features['weights_list']
 
         # Reshape scaling_factors, mean and variance to (1, 3)
-        self.mean = self.mean.reshape(40, 3)
-        self.variance = self.variance.reshape(40, 3)
+#         self.mean = self.mean.reshape(40, 3)
+#         self.variance = self.variance.reshape(40, 3)
 
         # read in the test actions from the JSON file
         with open('dependencies/test_actions.json', 'r') as f:
@@ -42,19 +41,19 @@ class AIModel(threading.Thread):
         self.test_r = np.array(test_actions['R'])
         self.test_l = np.array(test_actions['L'])
 
-
         # define the available actions
         self.test_actions = ['G', 'S', 'R', 'L']
 
         self.K = K
 
         self.ai_queue = queue_added
-        
+
         # PYNQ overlay NEW - pca_mlp_v3.5
-        self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
-        self.dma = self.overlay.axi_dma_0
-        self.in_buffer = pynq.allocate(shape=(129,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
+#         self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
+#         self.overlay.download()
+#         self.dma = self.overlay.axi_dma_0
+#         self.in_buffer = pynq.allocate(shape=(129,), dtype=np.float32)
+#         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
         # PYNQ overlay OLD backup - pca_mlp_1
         # self.overlay = Overlay("dependencies/pca_mlp_1.bit")
@@ -66,71 +65,54 @@ class AIModel(threading.Thread):
         start_time = time.time()
         while time.time() - start_time < seconds:
             pass
-    
-    def blur_3d_movement(self, acc_df):
-        acc_arr = np.array(acc_df, dtype=np.float32)
-        fs = 20  # sampling frequency
-        dt = 1/fs
+        
+    def extract_features(self, sensor_data):
+        sensor_data = np.array(sensor_data, dtype=np.float32)
 
-        filtered_acc_arr = gaussian_filter(acc_arr, sigma=5)
+        # Compute statistical features
+        mean = np.mean(sensor_data, axis=0)
+        std = np.std(sensor_data, axis=0)
+        skew = pd.DataFrame(sensor_data).skew().values
+        kurtosis = pd.DataFrame(sensor_data).kurtosis().values
+        range = np.ptp(sensor_data, axis=0)
+        rms = np.sqrt(np.mean(np.square(sensor_data), axis=0))
+        variance = np.var(sensor_data, axis=0)
+        mad = np.median(np.abs(sensor_data - np.median(sensor_data, axis=0)), axis=0)
 
-        xyz = np.cumsum(np.cumsum(filtered_acc_arr, axis=0) * dt, axis=0)
+        # Additional statistical features
+        abs_diff = np.abs(np.diff(sensor_data, axis=0)).mean(axis=0)
+        minimum = np.min(sensor_data, axis=0)
+        maximum = np.max(sensor_data, axis=0)
+        max_min_diff = maximum - minimum
+        median = np.median(sensor_data, axis=0)
+        iqr = np.percentile(sensor_data, 75, axis=0) - np.percentile(sensor_data, 25, axis=0)
+        negative_count = np.sum(sensor_data < 0, axis=0)
+        positive_count = np.sum(sensor_data > 0, axis=0)
+        values_above_mean = np.sum(sensor_data > mean, axis=0)
+        energy = np.sum(sensor_data**2, axis=0)
 
-        x_disp = xyz[-1, 0] - xyz[0, 0]
-        y_disp = xyz[-1, 1] - xyz[0, 1]
-        z_disp = xyz[-1, 2] - xyz[0, 2]
+        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, 
+                                        mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, negative_count,
+                                        positive_count, values_above_mean, energy
+                                        ], axis=0)
 
-        xz_proj = xyz[:, [0, 2]]  # Select the first and third columns for xz projection
+        return temp_features.tolist()
 
-        # Calculate the absolute distance between the first and last point in the xz projection
-        first_point = xz_proj[0]
-        last_point = xz_proj[-1]
-        # distance = np.abs(last_point - first_point)
-        distance_num = np.sum(np.abs(last_point - first_point))
-
-        arc_length = 0
-
-        for i in range(1, len(xz_proj)):
-            point1 = xz_proj[i-1]
-            point2 = xz_proj[i]
-            distance = np.linalg.norm(point2 - point1)
-            arc_length += distance
-
-        gap_ratio = distance_num/arc_length
-
-        return xyz, [x_disp, y_disp, z_disp], gap_ratio
-    
-    def get_top_2_axes(self, row):
-        row = np.array(row)
-        abs_values = np.abs(row)
-        top_2_idx = abs_values.argsort()[-2:][::-1]
-        return (top_2_idx[0], top_2_idx[1])
-    
-    def get_metric_ratios(self, row):
-        row = np.array(row)
-        # Compute ratios of x, y, z metrics
-        return np.array([
-            row[0]/row[1],
-            row[0]/row[2],
-            row[1]/row[2]
-        ])
-    
     # Define Scaler
-    def scaler(self, X):
-        return (X - self.mean) / np.sqrt(self.variance)
+#     def scaler(self, X):
+#         return (X - self.mean) / np.sqrt(self.variance)
 
     # Define PCA
-    def pca(self, X):
-        return np.dot(X, self.pca_eigvecs.T)
-
+#     def pca_math(self, X):
+#         return np.dot(X, self.pca_eigvecs.T)
 
     def rng_test_action(self):
         # choose a random action from the list
         chosen_action = random.choice(self.test_actions)
-        
+
         # # print chosen action
         print(f'Chosen action: {chosen_action} \n')
-        
+
         # use the chosen action to select the corresponding test data
         if chosen_action == 'G':
             test_data = self.test_g
@@ -143,79 +125,61 @@ class AIModel(threading.Thread):
 
         return test_data
 
-
     # Define MLP
-    def mlp(self, X):
+    def mlp_math(self, X):
         H1 = np.dot(X, self.weights[0]) + self.weights[1]
         H1_relu = np.maximum(0, H1)
         H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
         H2_relu = np.maximum(0, H2)
         Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-        Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
+        Y_softmax = np.exp(Y - np.max(Y)) / np.sum(np.exp(Y - np.max(Y)))
         return Y_softmax
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'} # TODO check if Logout is present
-        action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        action_dict = {0: 'G', 1: 'S', 2: 'R', 3: 'L'} 
         action = action_dict[max_index]
         return action
 
+#     def mlp_vivado(self, data):
+#         start_time = time.time()
 
-    def mlp_vivado(self, data):
-        start_time = time.time()
+#         # reshape data to match in_buffer shape
+#         data = np.reshape(data, (129,))
 
-        # reshape data to match in_buffer shape
-        data = np.reshape(data, (129,))
+#         self.in_buffer[:] = data
 
-        self.in_buffer[:] = data
+#         self.dma.sendchannel.transfer(self.in_buffer)
+#         self.dma.recvchannel.transfer(self.out_buffer)
 
-        self.dma.sendchannel.transfer(self.in_buffer)
-        self.dma.recvchannel.transfer(self.out_buffer)
+#         # wait for transfer to finish
+#         self.dma.sendchannel.wait()
+#         self.dma.recvchannel.wait()
 
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
+#         # print output buffer
+#         print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-        # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+#         print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        print(f"MLP time taken so far output: {time.time() - start_time}")
+#         return self.out_buffer
 
-        return self.out_buffer
+#     def mlp_vivado(data):
+#         sensor_data = data.reshape(40, 6)
+#         sensor_features = self.extract_features(sensor_data)
+#         pca_action = self.pca_math(sensor_features)
+#         mlp_softmax = self.mlp_math(pca_action)
+#         return mlp_softmax
 
-    def mlp_vivado_mockup(self, data):
-        action = data[0:120].reshape(40, 3)
-        scaled_action = self.scaler(action)
-        pca_action = self.pca(scaled_action.reshape(1,120))
-        mlp_input = np.hstack((pca_action.reshape(1,6), data[120:].reshape(1,9)))
-        Y_softmax = self.mlp(mlp_input)
-        return Y_softmax
-
-    def AIDriver(self, test_input):
-        test_input = test_input.reshape(40, 6)
-        acc_df = test_input[:, -3:]
-        
-        # Transform data using Scaler and PCA
-        blurred_data, disp_change, gap_ratio = self.blur_3d_movement(acc_df)
-        top_2 = self.get_top_2_axes(disp_change)
-        metric_ratios = self.get_metric_ratios(disp_change)
-
-        vivado_input = np.hstack((np.array(blurred_data).reshape(1,120), 
-                            np.array(disp_change).reshape(1,3), 
-                            np.array(top_2).reshape(1,2),
-                            np.array(metric_ratios).reshape(1,3),
-                            np.array(gap_ratio).reshape(1,1)
-                            )).flatten()
-
-        vivado_predictions = self.mlp_vivado(vivado_input)
-        # vivado_predictions = self.mlp_vivado_mockup(vivado_input)
-        
+    def AIDriver(self, test_input):        
+        sensor_data = test_input.reshape(40, 6)
+        sensor_features = self.extract_features(sensor_data)
+#         pca_action = self.pca_math(sensor_features)
+        vivado_predictions = self.mlp_math(sensor_features)
         action = self.get_action(vivado_predictions)
+        
         print(vivado_predictions)
         return str(action)
 
-        
     def close_connection(self):
         self.shutdown.set()
 
@@ -227,30 +191,30 @@ class AIModel(threading.Thread):
         # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
-        current_packet = np.zeros((5,6))
-        previous_packet = np.zeros((5,6))
-        data_packet = np.zeros((40,6))
+        current_packet = np.zeros((5, 6))
+        previous_packet = np.zeros((5, 6))
+        data_packet = np.zeros((40, 6))
         is_movement_counter = 0
         movement_watchdog = False
         loop_count = 0
 
         # live integration loop
         while True:
-            if self.ai_queue: # TODO re-enable for live integration
-            # if 1 == 1: # TODO DIS-enable for live integration
-            
+            if self.ai_queue:  # TODO re-enable for live integration
+                # if 1 == 1: # TODO DIS-enable for live integration
+
                 # runs loop 6 times and packs the data into groups of 6
                 q_data = self.ai_queue.get()  # TODO re-enable for live integration
                 self.ai_queue.task_done()  # TODO re-enable for live integration
-                new_data = np.array(q_data) # TODO re-enable for live integration
-                new_data = new_data / 100.0 # TODO re-enable for live integration
-                
+                new_data = np.array(q_data)  # TODO re-enable for live integration
+                new_data = new_data / 100.0  # TODO re-enable for live integration
+
                 # new_data = np.random.randn(6) # TODO DIS-enable for live integration
                 # print(" ".join([f"{x:.3f}" for x in new_data]))
-            
+
                 # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
-            
+
                 # Update loop_count
                 loop_count = (loop_count + 1) % 5
 
@@ -273,7 +237,7 @@ class AIModel(threading.Thread):
                         if is_movement_counter < 6:
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
-                        
+
                         # If we've seen 6 packets since the last movement detection, preprocess and classify the data
                         else:
                             # print dimensions of data packet
@@ -282,7 +246,7 @@ class AIModel(threading.Thread):
                             # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
                             # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
 
-                            action = self.AIDriver(data_packet) # TODO re-enable for live integration
+                            action = self.AIDriver(data_packet)  # TODO re-enable for live integration
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
                             if action == 'G':
@@ -298,9 +262,9 @@ class AIModel(threading.Thread):
                             movement_watchdog = False
                             is_movement_counter = 0
                             # reset arrays to zeros
-                            current_packet = np.zeros((5,6))
-                            previous_packet = np.zeros((5,6))
-                            data_packet = np.zeros((40,6))
+                            current_packet = np.zeros((5, 6))
+                            previous_packet = np.zeros((5, 6))
+                            data_packet = np.zeros((40, 6))
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
