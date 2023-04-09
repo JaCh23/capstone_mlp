@@ -67,13 +67,17 @@ class AIModel(threading.Thread):
             pass
         
     def extract_features(self, sensor_data):
-        sensor_data = np.array(sensor_data, dtype=np.float32)
+
+        skewness = pd.DataFrame(sensor_data).skew().values
+        kurt = pd.DataFrame(sensor_data).kurtosis().values
+
+        sensor_data = np.array(sensor_data)
+        sensor_data = sensor_data.reshape(40,6)
 
         # Compute statistical features
         mean = np.mean(sensor_data, axis=0)
         std = np.std(sensor_data, axis=0)
-        skew = pd.DataFrame(sensor_data).skew().values
-        kurtosis = pd.DataFrame(sensor_data).kurtosis().values
+
         range = np.ptp(sensor_data, axis=0)
         rms = np.sqrt(np.mean(np.square(sensor_data), axis=0))
         variance = np.var(sensor_data, axis=0)
@@ -91,7 +95,7 @@ class AIModel(threading.Thread):
         values_above_mean = np.sum(sensor_data > mean, axis=0)
         energy = np.sum(sensor_data**2, axis=0)
 
-        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, 
+        temp_features = np.concatenate([mean, std, skewness, kurt, range, rms, variance, 
                                         mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, negative_count,
                                         positive_count, values_above_mean, energy
                                         ], axis=0)
