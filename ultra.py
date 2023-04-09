@@ -21,25 +21,25 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.4.1.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v1.4.2.npz', allow_pickle=True)
         self.pca_eigvecs = features['pca_eigvecs']
         self.weights = features['weights_list']
         self.mean_vec = features['mean_vec']
         self.scale = features['scale']
         self.mean = features['mean']
 
-        # read in the test actions from the JSON file
-        with open('dependencies/test_actions_v1.4.1.json', 'r') as f:
-            test_actions = json.load(f)
+        # # read in the test actions from the JSON file
+        # with open('dependencies/test_actions_v1.4.1.json', 'r') as f:
+        #     test_actions = json.load(f)
 
-        # extract the test data for each action from the dictionary
-        self.test_g = np.array(test_actions['G'])
-        self.test_s = np.array(test_actions['S'])
-        self.test_r = np.array(test_actions['R'])
-        # self.test_l = np.array(test_actions['L'])
+        # # extract the test data for each action from the dictionary
+        # self.test_g = np.array(test_actions['G'])
+        # self.test_s = np.array(test_actions['S'])
+        # self.test_r = np.array(test_actions['R'])
+        # # self.test_l = np.array(test_actions['L'])
 
-        # define the available actions
-        self.test_actions = ['G', 'S', 'R']
+        # # define the available actions
+        # self.test_actions = ['G', 'S', 'R']
         # self.test_actions = ['G', 'S', 'R', 'L']
 
 
@@ -60,12 +60,15 @@ class AIModel(threading.Thread):
         # Convert the filtered data back to a NumPy array
         # filtered_data = filtered_data.to_numpy()
 
-        raw_sensor_data = np.array(raw_sensor_data, dtype=np.float32)
+        # Apply cumsum along rows
+        cumulative_sum = raw_sensor_data.apply(lambda x: x.cumsum(), axis=0)
 
-        # Apply median filtering column-wise with a window size of 3
-        # filtered_data = np.apply_along_axis(np.median, axis=0, arr=raw_sensor_data, window_size=3)
+        # Apply moving average filter
+        window_size = 3
+        sensor_data = cumulative_sum.rolling(window_size, min_periods=1, center=True).mean()
+        sensor_data = sensor_data.bfill()
 
-        sensor_data = np.cumsum(raw_sensor_data, axis=0) 
+        sensor_data = sensor_data.to_numpy()
 
         # Compute statistical features
         mean = np.mean(sensor_data, axis=0)
