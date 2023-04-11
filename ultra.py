@@ -21,29 +21,12 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.5.3.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v1.5.4.npz', allow_pickle=True)
         self.pca_eigvecs = features['pca_eigvecs']
         self.weights = features['weights_list']
         self.mean_vec = features['mean_vec']
         self.scale = features['scale']
         self.mean = features['mean']
-
-        # Reshape scaling_factors, mean and variance to (1, 3)
-#         self.mean = self.mean.reshape(40, 3)
-#         self.variance = self.variance.reshape(40, 3)
-
-        # read in the test actions from the JSON file
-        # with open('dependencies/test_actions.json', 'r') as f:
-        #     test_actions = json.load(f)
-
-        # # extract the test data for each action from the dictionary
-        # self.test_g = np.array(test_actions['G'])
-        # self.test_s = np.array(test_actions['S'])
-        # self.test_r = np.array(test_actions['R'])
-        # self.test_l = np.array(test_actions['L'])
-
-        # # define the available actions
-        # self.test_actions = ['G', 'S', 'R', 'L']
 
         self.K = K
         self.TOTAL_PACKET_COUNT = 30
