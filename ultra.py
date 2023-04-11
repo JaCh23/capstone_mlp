@@ -21,11 +21,12 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.2_newest.npz', allow_pickle=True)
-#         self.mean = features['mean']
-#         self.variance = features['variance']
-#         self.pca_eigvecs = features['pca_eigvecs']
+        features = np.load('dependencies/features_v1.5.3.npz', allow_pickle=True)
+        self.pca_eigvecs = features['pca_eigvecs']
         self.weights = features['weights_list']
+        self.mean_vec = features['mean_vec']
+        self.scale = features['scale']
+        self.mean = features['mean']
 
         # Reshape scaling_factors, mean and variance to (1, 3)
 #         self.mean = self.mean.reshape(40, 3)
@@ -45,6 +46,7 @@ class AIModel(threading.Thread):
         # self.test_actions = ['G', 'S', 'R', 'L']
 
         self.K = K
+        self.TOTAL_PACKET_COUNT = 30
 
         self.ai_queue = queue_added
 
@@ -66,49 +68,48 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
         
-    def extract_features(self, sensor_data):
+    def extract_features(self, raw_sensor_data):
 
-        skewness = pd.DataFrame(sensor_data).skew().values
-        kurt = pd.DataFrame(sensor_data).kurtosis().values
-
-        sensor_data = np.array(sensor_data)
-        sensor_data = sensor_data.reshape(40,6)
+        # Apply median filtering column-wise using the rolling function, window=5
+        sensor_data = raw_sensor_data.rolling(5, min_periods=1, axis=0).mean()
+        sensor_data = sensor_data.to_numpy()
 
         # Compute statistical features
         mean = np.mean(sensor_data, axis=0)
         std = np.std(sensor_data, axis=0)
-
-        range = np.ptp(sensor_data, axis=0)
-        rms = np.sqrt(np.mean(np.square(sensor_data), axis=0))
-        variance = np.var(sensor_data, axis=0)
-        mad = np.median(np.abs(sensor_data - np.median(sensor_data, axis=0)), axis=0)
-
-        # Additional statistical features
         abs_diff = np.abs(np.diff(sensor_data, axis=0)).mean(axis=0)
         minimum = np.min(sensor_data, axis=0)
         maximum = np.max(sensor_data, axis=0)
         max_min_diff = maximum - minimum
         median = np.median(sensor_data, axis=0)
+        mad = np.median(np.abs(sensor_data - np.median(sensor_data, axis=0)), axis=0)
         iqr = np.percentile(sensor_data, 75, axis=0) - np.percentile(sensor_data, 25, axis=0)
         negative_count = np.sum(sensor_data < 0, axis=0)
         positive_count = np.sum(sensor_data > 0, axis=0)
         values_above_mean = np.sum(sensor_data > mean, axis=0)
-        energy = np.sum(sensor_data**2, axis=0)
+        
+        peak_counts = np.array(np.apply_along_axis(lambda x: len(find_peaks(x)[0]), 0, sensor_data)).flatten()
 
-        temp_features = np.concatenate([mean, std, skewness, kurt, range, rms, variance, 
-                                        mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, negative_count,
-                                        positive_count, values_above_mean, energy
-                                        ], axis=0)
+        skewness = np.array(pd.DataFrame(sensor_data.reshape(-1,6)).skew().values).flatten()
+        kurt = np.array(pd.DataFrame(sensor_data.reshape(-1,6)).kurtosis().values).flatten()
+        energy = np.array(np.sum(sensor_data**2, axis=0)).flatten()
 
+        # Compute the average resultant for gyro and acc columns
+        gyro_cols = sensor_data[:, :3]
+        acc_cols = sensor_data[:, 3:]
+        gyro_avg_result = np.array(np.sqrt((gyro_cols**2).sum(axis=1)).mean()).flatten()
+        acc_avg_result = np.array(np.sqrt((acc_cols**2).sum(axis=1)).mean()).flatten()
+
+        # Compute the signal magnitude area for gyro and acc columns
+        gyro_sma = np.array((np.abs(gyro_cols) / 100).sum(axis=0).sum()).flatten()
+        acc_sma = np.array((np.abs(acc_cols) / 100).sum(axis=0).sum()).flatten()
+
+        # Concatenate features and return as a list
+        temp_features = np.concatenate([mean, std, abs_diff, minimum, maximum, max_min_diff, median, mad, iqr,
+                                        negative_count, positive_count, values_above_mean, peak_counts, skewness, kurt, energy,
+                                        gyro_avg_result, acc_avg_result, gyro_sma, acc_sma])
+    
         return temp_features.tolist()
-
-    # Define Scaler
-#     def scaler(self, X):
-#         return (X - self.mean) / np.sqrt(self.variance)
-
-    # Define PCA
-#     def pca_math(self, X):
-#         return np.dot(X, self.pca_eigvecs.T)
 
     def rng_test_action(self):
         # choose a random action from the list
@@ -129,19 +130,20 @@ class AIModel(threading.Thread):
 
         return test_data
 
-    # Define MLP
+    # Define MLP - 3 layers
     def mlp_math(self, X):
         H1 = np.dot(X, self.weights[0]) + self.weights[1]
         H1_relu = np.maximum(0, H1)
         H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
         H2_relu = np.maximum(0, H2)
         Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-        Y_softmax = np.exp(Y - np.max(Y)) / np.sum(np.exp(Y - np.max(Y)))
+        Y_softmax = np.exp(Y) / np.sum(np.exp(Y))
         return Y_softmax
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'S', 2: 'R', 3: 'L'} 
+        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        # action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
@@ -175,14 +177,25 @@ class AIModel(threading.Thread):
 #         return mlp_softmax
 
     def AIDriver(self, test_input):        
-        sensor_data = test_input
-        sensor_features = self.extract_features(sensor_data)
-#         pca_action = self.pca_math(sensor_features)
-        vivado_predictions = self.mlp_math(sensor_features)
-        action = self.get_action(vivado_predictions)
-        
-        print(vivado_predictions)
-        return str(action)
+        sanity_data = test_input.reshape(1,-1)
+        scaled_action_df = pd.DataFrame(sanity_data.reshape(-1,6))
+
+        # 1. Feature extraction
+        feature_vec = np.array(self.extract_features(scaled_action_df)).reshape(1,-1)
+
+        # 2. Scaler using features
+        scaled_action_math = (feature_vec - self.mean) / self.scale
+
+        # 3. PCA using scaler
+        pca_test_centered = scaled_action_math - self.mean_vec.reshape(1,-1)
+        pca_vec_math = np.dot(pca_test_centered, self.pca_eigvecs.T).astype(float)
+
+        # 4. MLP using PCA
+        pred_math = self.mlp_math(np.array(pca_vec_math).reshape(1,-1))
+        action_math = self.get_action(pred_math)
+
+        print(pred_math)
+        return str(action_math)
 
     def close_connection(self):
         self.shutdown.set()
@@ -197,10 +210,13 @@ class AIModel(threading.Thread):
         # Initialize arrays to hold the current and previous data packets
         current_packet = np.zeros((5, 6))
         previous_packet = np.zeros((5, 6))
-        data_packet = np.zeros((40, 6))
+        data_packet = np.zeros((self.TOTAL_PACKET_COUNT, 6))
         is_movement_counter = 0
         movement_watchdog = False
         loop_count = 0
+        g2_acc_offset = [-0.810, 0.680, 11.660]
+        g1_acc_offset = [47.0, -981.0, -33.0]
+
 
         # live integration loop
         while True:
@@ -209,11 +225,15 @@ class AIModel(threading.Thread):
 
                 # runs loop 6 times and packs the data into groups of 6
                 q_data = BlunoBeetle.packet_queue.get()  # TODO re-enable for live integration
-                new_data = np.array(q_data)  # TODO re-enable for live integration
+                new_data = np.array(q_data).astype(float)  # TODO re-enable for live integration
+
+                # new_data[-3:] -= g1_acc_offset
+
                 new_data = new_data / 100.0  # TODO re-enable for live integration
 
+
                 # new_data = np.random.randn(6) # TODO DIS-enable for live integration
-                # print(" ".join([f"{x:.3f}" for x in new_data]))
+                print(" ".join([f"{x:.3f}" for x in new_data]))
                 print(".\n")
 
                 # Pack the data into groups of 6
@@ -223,7 +243,7 @@ class AIModel(threading.Thread):
                 loop_count = (loop_count + 1) % 5
 
                 if loop_count % 5 == 0:
-                    curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+                    curr_mag =  np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
                     # Check for movement detection
@@ -238,21 +258,21 @@ class AIModel(threading.Thread):
 
                     # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
                     if movement_watchdog:
-                        if is_movement_counter < 6:
+                        if is_movement_counter < ((self.TOTAL_PACKET_COUNT - 10)/5):
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
 
                         # If we've seen 6 packets since the last movement detection, preprocess and classify the data
                         else:
                             # print dimensions of data packet
-                            # print(f"data_packet dimensions: {data_packet.shape} \n")
+                            print(f"data_packet dimensions: {data_packet.shape} \n")
                             demo = pd.DataFrame(data_packet)
-                            print(demo.head(40))
+                            print(demo.head(self.TOTAL_PACKET_COUNT))
 
                             # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
                             # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
 
-                            action = self.AIDriver(pd.DataFrame(data_packet))  # TODO re-enable for live integration
+                            action = self.AIDriver(data_packet)  # TODO re-enable for live integration
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
                             # if action == 'G':
@@ -268,9 +288,9 @@ class AIModel(threading.Thread):
                             movement_watchdog = False
                             is_movement_counter = 0
                             # reset arrays to zeros
-                            current_packet = np.zeros((5, 6))
-                            previous_packet = np.zeros((5, 6))
-                            data_packet = np.zeros((40, 6))
+                            # current_packet = np.zeros((5, 6))
+                            # previous_packet = np.zeros((5, 6))
+                            data_packet = np.zeros((self.TOTAL_PACKET_COUNT, 6))
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
