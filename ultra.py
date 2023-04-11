@@ -21,7 +21,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.5.5.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v1.5.6.npz', allow_pickle=True)
         self.pca_eigvecs = features['pca_eigvecs']
         self.weights = features['weights_list']
         self.mean_vec = features['mean_vec']
@@ -94,24 +94,24 @@ class AIModel(threading.Thread):
     
         return temp_features.tolist()
 
-    def rng_test_action(self):
-        # choose a random action from the list
-        chosen_action = random.choice(self.test_actions)
+    # def rng_test_action(self):
+    #     # choose a random action from the list
+    #     chosen_action = random.choice(self.test_actions)
 
-        # # print chosen action
-        print(f'Chosen action: {chosen_action} \n')
+    #     # # print chosen action
+    #     print(f'Chosen action: {chosen_action} \n')
 
-        # use the chosen action to select the corresponding test data
-        if chosen_action == 'G':
-            test_data = self.test_g
-        elif chosen_action == 'S':
-            test_data = self.test_s
-        elif chosen_action == 'L':
-            test_data = self.test_l
-        else:
-            test_data = self.test_r
+    #     # use the chosen action to select the corresponding test data
+    #     if chosen_action == 'G':
+    #         test_data = self.test_g
+    #     elif chosen_action == 'S':
+    #         test_data = self.test_s
+    #     elif chosen_action == 'L':
+    #         test_data = self.test_l
+    #     else:
+    #         test_data = self.test_r
 
-        return test_data
+    #     return test_data
 
     # Define MLP - 3 layers
     def mlp_math(self, X):
