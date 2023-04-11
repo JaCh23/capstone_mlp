@@ -21,7 +21,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.5.4.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v1.5.5.npz', allow_pickle=True)
         self.pca_eigvecs = features['pca_eigvecs']
         self.weights = features['weights_list']
         self.mean_vec = features['mean_vec']
@@ -197,8 +197,8 @@ class AIModel(threading.Thread):
         is_movement_counter = 0
         movement_watchdog = False
         loop_count = 0
-        g2_acc_offset = [-0.810, 0.680, 11.660]
-        g1_acc_offset = [47.0, -981.0, -33.0]
+        # g2_acc_offset = [-0.810, 0.680, 11.660]
+        # g1_acc_offset = [47.0, -981.0, -33.0]
 
 
         # live integration loop
