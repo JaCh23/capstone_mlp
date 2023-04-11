@@ -1,4 +1,4 @@
-# Capstone AI MLP V3.5
+# Capstone AI MLP V1.6
 
 Summary of project:
 - Performing laser tag action recognition to detect in-game action
@@ -13,10 +13,9 @@ Summary of project:
 The following files are required for this project:
 
 ultra.py (MAIN) 
-- features.npz (Scaler, PCA, MLP arrays)
-- test_actions.json (Test data of one Grenade, Shield, Logout, Reload)
-- pca_mlp_3_5.bit (Hardware bitstream)
-- pca_mlp_3_5.hwh (Hardware bitstream)
+- features_v1.6.npz (Scaler, PCA, MLP arrays)
+- pca_mlp_1_5.bit (Hardware bitstream)
+- pca_mlp_1_6.hwh (Hardware bitstream)
 
 ## Summary
 
@@ -28,7 +27,7 @@ ultra.py (MAIN)
 
 Key features:
 - Mean sliding window on sensor data to reduce noise
-- For the experimented dataset and project, PCA with 90% explained variance implied Top 24 components aka K=24
+- For the experimented dataset and project, PCA with 90% explained variance implied Top 24 components aka K=24 (see image below)
 - MLP with 2 hidden layers and ReLU activation
     - Input = 24 
     - Hidden Layer 1, N=16
@@ -47,14 +46,14 @@ Key features:
 
 ## Revision History 
 - V3: Movement Trajectory in 3D Space + PCA (Decommissioned due to underperforming results)
-    - V3.5 Gap ratio feature engineering [NEW]
+    - V3.5 Gap ratio feature engineering
     - V3.4 Distance feature
     - V3.3 Half movement trajectories instead of complete movement 
     - V3.2 Include Logout 
     - V3.1 Excluded Logout
 - V2: Splintering into 8 sub-datasets per time quarter and conducting standard feature engineering techniques, eg mean variance median IQR
 - V1: Standard feature engineering techniques across all 6 data metrics Gyro and Acc X,Y,Z
-    - V1.5.5-6: Expanded training dataset to collecting with non-teammates actions
+    - V1.5, V1.6: Expanded training dataset to collecting with non-teammates actions [FINAL]
     - V1.5.4: New Logout action
     - V1.5.3: MVP of Features-Scaler-PCA-MLP workflow 
 
