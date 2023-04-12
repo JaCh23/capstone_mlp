@@ -34,6 +34,9 @@ Key features:
     - Hidden Layer 2, N=8
     - Softmax = 4, outputs aka G,L,R,S classification
 
+![image](https://user-images.githubusercontent.com/24263853/231349024-3f7ed20e-38ff-49fc-9516-5ae851826618.png)
+Image: PCA Explained Variance Ratio vs. Number of Components
+
 (Decommissioned V3 Model)
 - Applying Gaussian blur to 3D parabolic data traced by acceleration path
 - Feature engineering: 
