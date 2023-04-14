@@ -13,8 +13,8 @@ Summary of project:
 The following files are required for this project:
 
 ultra.py (MAIN) 
-- features_v1.6.npz (Scaler, PCA, MLP arrays)
-- pca_mlp_1_5.bit (Hardware bitstream)
+- features_v1.6.npz (Mock software bitstream containing Scaler, PCA, MLP arrays)
+- pca_mlp_1_6.bit (Hardware bitstream)
 - pca_mlp_1_6.hwh (Hardware bitstream)
 
 ## Summary
@@ -24,6 +24,10 @@ ultra.py (MAIN)
 2. Standard Scaler on extracted features 
 3. PCA Analysis on scalarised features
 4. MLP on PCA Top K components 
+
+![image](https://user-images.githubusercontent.com/24263853/232095951-450926e1-3bb2-4d77-854d-9d120c784587.png)
+
+Image: AI final algorithm
 
 Key features:
 - Mean sliding window on sensor data to reduce noise
@@ -37,6 +41,13 @@ Key features:
 ![image](https://user-images.githubusercontent.com/24263853/231349024-3f7ed20e-38ff-49fc-9516-5ae851826618.png)
 
 Image: PCA Explained Variance Ratio vs. Number of Components
+
+
+
+
+![image](https://user-images.githubusercontent.com/24263853/232096668-2b9f5495-edbf-4b7d-8df8-d5791af72540.png)
+
+Image: Final Vivado Block diagram
 
 (Decommissioned V3 Model)
 - Applying Gaussian blur to 3D parabolic data traced by acceleration path
@@ -68,9 +79,3 @@ How to run code
 2. sudo -s
 3. export XILINX_XRT=/usr
 4. python3 ultra.py
-
-## Instructions for Ext Comms
-
-![image](https://user-images.githubusercontent.com/24263853/227785317-bc19a23a-e920-4279-828f-0fbff27af7ff.png)
-
-![image](https://user-images.githubusercontent.com/24263853/227785277-90e0dd91-4821-4d44-a474-874cc2f8732b.png)
