@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import json
 
-# import pynq
-# from pynq import Overlay
+import pynq
+from pynq import Overlay
 class AIModel(threading.Thread):
     def __init__(self, player, action_engine_model, queue_added, K):
         super().__init__()
@@ -20,19 +20,13 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        # features = np.load('dependencies/features_v1.5.6.npz', allow_pickle=True)
-        # self.pca_eigvecs = features['pca_eigvecs']
-        # self.weights = features['weights_list']
-        # self.mean_vec = features['mean_vec']
-        # self.scale = features['scale']
-        # self.mean = features['mean']
-
         self.K = K
         self.TOTAL_PACKET_COUNT = 30
 
         self.ai_queue = queue_added
 
-        # PYNQ overlay 
+        # PYNQ overlay NEW - pca_mlp_v3.5
+
         self.overlay = Overlay("dependencies/pca_mlp_1_6.bit")
         self.overlay.download()
         self.dma = self.overlay.axi_dma_0
@@ -88,35 +82,6 @@ class AIModel(threading.Thread):
 
         return temp_features.tolist()
 
-    # def rng_test_action(self):
-    #     # choose a random action from the list
-    #     chosen_action = random.choice(self.test_actions)
-
-    #     # # print chosen action
-    #     print(f'Chosen action: {chosen_action} \n')
-
-    #     # use the chosen action to select the corresponding test data
-    #     if chosen_action == 'G':
-    #         test_data = self.test_g
-    #     elif chosen_action == 'S':
-    #         test_data = self.test_s
-    #     elif chosen_action == 'L':
-    #         test_data = self.test_l
-    #     else:
-    #         test_data = self.test_r
-
-    #     return test_data
-
-    # Define MLP - 3 layers
-    # def mlp_math(self, X):
-    #     H1 = np.dot(X, self.weights[0]) + self.weights[1]
-    #     H1_relu = np.maximum(0, H1)
-    #     H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
-    #     H2_relu = np.maximum(0, H2)
-    #     Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-    #     Y_softmax = np.exp(Y) / np.sum(np.exp(Y))
-    #     return Y_softmax
-
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
         action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
@@ -145,33 +110,15 @@ class AIModel(threading.Thread):
 
         return self.out_buffer
 
-
     def AIDriver(self, test_input):
         sanity_data = test_input.reshape(1, -1)
         scaled_action_df = pd.DataFrame(sanity_data.reshape(-1, 6))
 
-
-
         # 1. Feature extraction
         feature_vec = np.array(self.extract_features(scaled_action_df)).reshape(1, -1)
 
-        # Using Overlay to perform 2-4 vvv
         vivado_pred = self.mlp_vivado(feature_vec)
         vivado_action = self.get_action(vivado_pred)
-        # End of Overlay ^^
-
-        # Using Math functions to perform 2-4 vvv
-        # # 2. Scaler using features
-        # scaled_action_math = (feature_vec - self.mean) / self.scale
-        #
-        # # 3. PCA using scaler
-        # pca_test_centered = scaled_action_math - self.mean_vec.reshape(1, -1)
-        # pca_vec_math = np.dot(pca_test_centered, self.pca_eigvecs.T).astype(float)
-        #
-        # # 4. MLP using PCA
-        # pred_math = self.mlp_math(np.array(pca_vec_math).reshape(1, -1))
-        # action_math = self.get_action(pred_math)
-        # End of math functions ^^
 
         print(vivado_pred)
         return str(vivado_action)
@@ -182,10 +129,6 @@ class AIModel(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        # Set the threshold value for movement detection based on user input
-        # K = 5
-        # K = float(input("threshold value? "))
-
         # Initialize arrays to hold the current and previous data packets
         current_packet = np.zeros((5, 6))
         previous_packet = np.zeros((5, 6))
@@ -270,7 +213,6 @@ class AIModel(threading.Thread):
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
-
 
 if __name__ == '__main__':
     # AI Model
