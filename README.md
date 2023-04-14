@@ -14,7 +14,7 @@ The following files are required for this project:
 
 ultra.py (MAIN) 
 - features_v1.6.npz (Mock software bitstream containing Scaler, PCA, MLP arrays)
-- pca_mlp_1_5.bit (Hardware bitstream)
+- pca_mlp_1_6.bit (Hardware bitstream)
 - pca_mlp_1_6.hwh (Hardware bitstream)
 
 ## Summary
@@ -41,6 +41,8 @@ Key features:
 ![image](https://user-images.githubusercontent.com/24263853/231349024-3f7ed20e-38ff-49fc-9516-5ae851826618.png)
 
 Image: PCA Explained Variance Ratio vs. Number of Components
+
+
 
 
 ![image](https://user-images.githubusercontent.com/24263853/232096668-2b9f5495-edbf-4b7d-8df8-d5791af72540.png)
