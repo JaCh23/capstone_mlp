@@ -74,6 +74,10 @@ Image: Final Vivado Block diagram
 
 ## Instructions
 
+To pip install:
+1. numpy
+2. pandas
+
 How to run code
 1. Log in to Ultra
 2. sudo -s
